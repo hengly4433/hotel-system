@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: hotel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: blockcode
+      POSTGRES_PASSWORD: Password@123
+      POSTGRES_DB: hotel_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hotel-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blockcode -d hotel_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    container_name: hotel-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: builder
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/home/gradle/project
+      - ./db:/home/gradle/db
+    command: gradle bootRun
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hotel_system
+      SPRING_DATASOURCE_USERNAME: blockcode
+      SPRING_DATASOURCE_PASSWORD: Password@123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      APP_AUTH_GOOGLE_CLIENT_ID: ${APP_AUTH_GOOGLE_CLIENT_ID:-}
+      APP_AUTH_GOOGLE_CLIENT_SECRET: ${APP_AUTH_GOOGLE_CLIENT_SECRET:-}
+      APP_AUTH_GOOGLE_REDIRECT_URI: ${APP_AUTH_GOOGLE_REDIRECT_URI:-}
+      APP_STOREFRONT_BASE_URL: ${APP_STOREFRONT_BASE_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotel-network
+
+  admin:
+    container_name: hotel-admin
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+      target: deps
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/admin:/app/apps/admin
+      - ./shared:/app/shared
+    command: npm run dev --workspace=apps/admin
+    environment:
+      BACKEND_BASE_URL: http://backend:8080
+      NODE_ENV: development
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+    networks:
+      - hotel-network
+    depends_on:
+      - backend
+
+  storefront:
+    container_name: hotel-storefront
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile
+      target: deps
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./apps/storefront:/app/apps/storefront
+      - ./shared:/app/shared
+    command: npm run dev --workspace=apps/storefront
+    environment:
+      BACKEND_BASE_URL: http://backend:8080
+      NODE_ENV: development
+    networks:
+      - hotel-network
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+
+networks:
+  hotel-network:
+    driver: bridge

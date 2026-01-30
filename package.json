@@ -1,0 +1,15 @@
+{
+  "name": "hotel-system",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm --workspace apps/admin run dev",
+    "dev:storefront": "npm --workspace apps/storefront run dev",
+    "dev": "npm run dev:admin"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.0"
+  }
+}

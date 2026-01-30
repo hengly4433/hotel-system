@@ -1,0 +1,14 @@
+package com.yourorg.hotel.room.api.dto;
+
+import java.util.UUID;
+
+public record RoomResponse(
+    UUID id,
+    UUID propertyId,
+    UUID roomTypeId,
+    String roomNumber,
+    String floor,
+    String housekeepingZone,
+    boolean isActive
+) {
+}
