@@ -1,6 +1,25 @@
-import { BLOGS } from "@/app/content/marketing";
+import { publicApi } from "@/lib/publicApi";
 
-export default function BlogPage() {
+type Blog = {
+  id: string;
+  title: string;
+  tag: string;
+  description: string;
+  imageUrl: string;
+  content: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export default async function BlogPage() {
+  let blogs: Blog[] = [];
+  
+  try {
+    blogs = await publicApi<Blog[]>("/public/blogs");
+  } catch (error) {
+    console.error("Failed to fetch blogs:", error);
+  }
+
   return (
     <main>
       <section className="page-hero">
@@ -14,20 +33,24 @@ export default function BlogPage() {
         <div className="container">
           <div className="section-center" style={{ marginBottom: 32 }}>
             <h2 className="section-title centered">Blog</h2>
-            <p>Lorem Ipsum available, but the majority have suffered.</p>
+            <p>Latest stories and updates from our coastal retreat.</p>
           </div>
-          <div className="blog-grid">
-            {BLOGS.map((blog, index) => (
-              <article key={`${blog.title}-${index}`} className="blog-card">
-                <img src={blog.image} alt={blog.title} />
-                <div className="blog-body">
-                  <h3>{blog.title}</h3>
-                  <span className="tag">{blog.tag}</span>
-                  <p>{blog.desc}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+          {blogs.length > 0 ? (
+            <div className="blog-grid">
+              {blogs.map((blog) => (
+                <article key={blog.id} className="blog-card">
+                  <img src={blog.imageUrl} alt={blog.title} />
+                  <div className="blog-body">
+                    <h3>{blog.title}</h3>
+                    <span className="tag">{blog.tag}</span>
+                    <p>{blog.description}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">No blog posts available yet.</div>
+          )}
         </div>
       </section>
     </main>

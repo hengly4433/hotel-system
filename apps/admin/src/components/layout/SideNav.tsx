@@ -82,10 +82,12 @@ export default function SideNav() {
           border: "none",
           backgroundColor: "#fff",
           boxShadow: "2px 0 8px rgba(0,0,0,0.04)",
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
-      {/* Logo Section */}
+      {/* Logo Section - Fixed Header */}
       <Box 
         sx={{ 
           p: 3, 
@@ -94,6 +96,7 @@ export default function SideNav() {
           alignItems: 'center', 
           gap: 2,
           borderBottom: `1px solid ${tokens.colors.grey[100]}`,
+          flexShrink: 0,
         }}
       >
         <Box sx={{
@@ -120,7 +123,28 @@ export default function SideNav() {
         </Box>
       </Box>
 
-      <List component="nav" sx={{ px: 2, pt: 2 }}>
+      {/* Scrollable Menu Container */}
+      <Box 
+        sx={{ 
+          flex: 1, 
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: tokens.colors.grey[300],
+            borderRadius: '3px',
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            background: tokens.colors.grey[400],
+          },
+        }}
+      >
+        <List component="nav" sx={{ px: 2, pt: 2 }}>
         {loading ? (
           Array.from(new Array(5)).map((_, index) => (
             <Skeleton key={index} variant="rectangular" height={46} sx={{ borderRadius: 2, mb: 1 }} />
@@ -226,7 +250,8 @@ export default function SideNav() {
             );
           })
         )}
-      </List>
+        </List>
+      </Box>
     </Drawer>
   );
 }

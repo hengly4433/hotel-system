@@ -22,6 +22,9 @@ public class BlogEntity extends AuditableEntity {
     @Column(name = "title", nullable = false)
     private String title;
 
+    @Column(name = "slug", unique = true)
+    private String slug;
+
     @Column(name = "tag")
     private String tag;
 
@@ -51,6 +54,14 @@ public class BlogEntity extends AuditableEntity {
 
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    public String getSlug() {
+        return slug;
+    }
+
+    public void setSlug(String slug) {
+        this.slug = slug;
     }
 
     public String getTag() {

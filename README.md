@@ -289,3 +289,7 @@ Run it against the database (Docker):
 ```bash
 cat db/seeds/additional_sample_data.sql | docker compose exec -T postgres psql -U blockcode -d hotel_system
 ```
+
+## Deployment
+
+For detailed deployment instructions (Render, Railway, Vercel), see [DEPLOYMENT.md](DEPLOYMENT.md).
