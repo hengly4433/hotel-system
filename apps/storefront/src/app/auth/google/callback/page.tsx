@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { setCustomerToken } from "@/lib/customerAuth";
@@ -11,7 +11,7 @@ function safeRedirect(value: string | null) {
   return "/";
 }
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackContent() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get("token");
@@ -28,17 +28,21 @@ export default function GoogleCallbackPage() {
   if (error) {
     return (
       <main>
-        <section className="section auth-section">
-          <div className="container auth-shell">
-            <div className="card auth-card" style={{ margin: "0 auto" }}>
-              <h2>Google sign-in failed</h2>
-              <p>{error}</p>
-              <Link className="btn btn-primary" href="/auth/sign-in">
-                Return to sign in
-              </Link>
-            </div>
+        <div className="auth-wrapper">
+          <div className="auth-brand">
+            <Link href="/" className="auth-brand-logo">Sky High Hotel</Link>
           </div>
-        </section>
+          <div className="auth-card-standalone" style={{ textAlign: "center" }}>
+            <h1>Sign-in failed</h1>
+            <p className="auth-subtitle">{error}</p>
+            <Link className="auth-btn auth-btn-primary" href="/auth/sign-in">
+              Try again
+            </Link>
+          </div>
+          <Link href="/" className="auth-back-link">
+            ← Back to home
+          </Link>
+        </div>
       </main>
     );
   }
@@ -46,31 +50,44 @@ export default function GoogleCallbackPage() {
   if (!token) {
     return (
       <main>
-        <section className="section auth-section">
-          <div className="container auth-shell">
-            <div className="card auth-card" style={{ margin: "0 auto" }}>
-              <h2>Unable to complete sign-in</h2>
-              <p>Please try again.</p>
-              <Link className="btn btn-primary" href="/auth/sign-in">
-                Return to sign in
-              </Link>
-            </div>
+        <div className="auth-wrapper">
+          <div className="auth-brand">
+            <Link href="/" className="auth-brand-logo">Sky High Hotel</Link>
           </div>
-        </section>
+          <div className="auth-card-standalone" style={{ textAlign: "center" }}>
+            <h1>Unable to complete sign-in</h1>
+            <p className="auth-subtitle">Please try again.</p>
+            <Link className="auth-btn auth-btn-primary" href="/auth/sign-in">
+              Return to sign in
+            </Link>
+          </div>
+          <Link href="/" className="auth-back-link">
+            ← Back to home
+          </Link>
+        </div>
       </main>
     );
   }
 
   return (
     <main>
-      <section className="section auth-section">
-        <div className="container auth-shell">
-          <div className="card auth-card" style={{ margin: "0 auto" }}>
-            <h2>Signing you in...</h2>
-            <p>Please wait while we finish your login.</p>
-          </div>
+      <div className="auth-wrapper">
+        <div className="auth-brand">
+          <Link href="/" className="auth-brand-logo">Sky High Hotel</Link>
         </div>
-      </section>
+        <div className="auth-card-standalone" style={{ textAlign: "center" }}>
+          <h1>Signing you in...</h1>
+          <p className="auth-subtitle">Please wait while we complete your login.</p>
+        </div>
+      </div>
     </main>
+  );
+}
+
+export default function GoogleCallbackPage() {
+  return (
+    <Suspense fallback={<div className="auth-wrapper"><div className="auth-card-standalone"><p>Loading...</p></div></div>}>
+      <GoogleCallbackContent />
+    </Suspense>
   );
 }

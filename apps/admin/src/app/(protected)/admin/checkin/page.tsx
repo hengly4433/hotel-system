@@ -4,6 +4,45 @@ import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  Box,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Typography,
+  Alert,
+  Stack,
+  Chip,
+  TablePagination,
+  alpha,
+  Button,
+  TextField,
+  InputAdornment,
+  Tabs,
+  Tab,
+  Tooltip,
+} from "@mui/material";
+import { 
+  Login as CheckInIcon,
+  Logout as CheckOutIcon,
+  Search as SearchIcon,
+  CalendarMonth as CalendarIcon,
+  Person as PersonIcon,
+  MeetingRoom as RoomIcon,
+  Event as EventIcon,
+  CheckCircle as ConfirmedIcon,
+  HourglassEmpty as HoldIcon,
+  Cancel as CancelIcon,
+  HighlightOff as NoShowIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
+import { format, parseISO, isToday, isTomorrow, isPast, isAfter } from "date-fns";
 
 type Reservation = {
   id: string;
@@ -11,11 +50,65 @@ type Reservation = {
   status: string;
   checkInDate: string;
   checkOutDate: string;
+  adults: number;
+  children: number;
+  primaryGuestId: string;
 };
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+  HOLD: { 
+    label: "Hold", 
+    color: "#854d0e", 
+    bg: alpha("#facc15", 0.15),
+    icon: <HoldIcon sx={{ fontSize: 16 }} />,
+  },
+  CONFIRMED: { 
+    label: "Confirmed", 
+    color: "#166534", 
+    bg: alpha("#22c55e", 0.15),
+    icon: <ConfirmedIcon sx={{ fontSize: 16 }} />,
+  },
+  CHECKED_IN: { 
+    label: "Checked In", 
+    color: "#1d4ed8", 
+    bg: alpha("#3b82f6", 0.15),
+    icon: <CheckInIcon sx={{ fontSize: 16 }} />,
+  },
+  CHECKED_OUT: { 
+    label: "Checked Out", 
+    color: "#6b21a8", 
+    bg: alpha("#a855f7", 0.15),
+    icon: <CheckOutIcon sx={{ fontSize: 16 }} />,
+  },
+  CANCELLED: { 
+    label: "Cancelled", 
+    color: "#b91c1c", 
+    bg: alpha("#ef4444", 0.15),
+    icon: <CancelIcon sx={{ fontSize: 16 }} />,
+  },
+  NO_SHOW: { 
+    label: "No Show", 
+    color: "#4b5563", 
+    bg: alpha("#6b7280", 0.15),
+    icon: <NoShowIcon sx={{ fontSize: 16 }} />,
+  },
+};
+
+function formatDateLabel(dateStr: string): { label: string; isSpecial: boolean } {
+  const date = parseISO(dateStr);
+  if (isToday(date)) return { label: "Today", isSpecial: true };
+  if (isTomorrow(date)) return { label: "Tomorrow", isSpecial: true };
+  return { label: format(date, "MMM d, yyyy"), isSpecial: false };
+}
 
 export default function CheckInOutPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState(0);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const loadData = useCallback(async () => {
     try {
@@ -35,62 +128,488 @@ export default function CheckInOutPage() {
   }, [loadData]);
 
   async function handleCheckIn(id: string) {
+    setLoading(true);
     try {
       await apiJson(`reservations/${id}/checkin`, { method: "POST" });
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleCheckOut(id: string) {
+    setLoading(true);
     try {
       await apiJson(`reservations/${id}/checkout`, { method: "POST" });
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }
 
+  // Filter reservations based on tab and search
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  
+  const filteredReservations = reservations.filter((res) => {
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      if (!res.code.toLowerCase().includes(query)) {
+        return false;
+      }
+    }
+    
+    // Tab filter
+    switch (activeTab) {
+      case 0: // Today's Arrivals - CONFIRMED with checkInDate = today
+        return res.status === "CONFIRMED" && res.checkInDate === todayStr;
+      case 1: // Today's Departures - CHECKED_IN with checkOutDate = today
+        return res.status === "CHECKED_IN" && res.checkOutDate === todayStr;
+      case 2: // In-House - CHECKED_IN
+        return res.status === "CHECKED_IN";
+      case 3: // All Reservations
+        return true;
+      default:
+        return true;
+    }
+  });
+
+  const paginatedReservations = filteredReservations.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
+  // Count for tabs
+  const arrivalsCount = reservations.filter(r => r.status === "CONFIRMED" && r.checkInDate === todayStr).length;
+  const departuresCount = reservations.filter(r => r.status === "CHECKED_IN" && r.checkOutDate === todayStr).length;
+  const inHouseCount = reservations.filter(r => r.status === "CHECKED_IN").length;
+
   return (
-    <main>
-      <PageHeader title="Check-in / Check-out" subtitle="Process arrivals and departures" />
-      {error ? <div style={{ color: "#b91c1c", marginBottom: 16 }}>{error}</div> : null}
-      <div style={{ background: "white", padding: 24, borderRadius: 10 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left" }}>
-              <th>Code</th>
-              <th>Status</th>
-              <th>Dates</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {reservations.map((reservation) => (
-              <tr key={reservation.id} style={{ borderTop: "1px solid #e2e8f0" }}>
-                <td>{reservation.code}</td>
-                <td>{reservation.status}</td>
-                <td>
-                  {reservation.checkInDate} → {reservation.checkOutDate}
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    type="button"
-                    onClick={() => handleCheckIn(reservation.id)}
-                    style={{ marginRight: 8 }}
-                  >
-                    Check-in
-                  </button>
-                  <button type="button" onClick={() => handleCheckOut(reservation.id)}>
-                    Check-out
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </main>
+    <Box component="main">
+      <PageHeader 
+        title="Check-in / Check-out" 
+        subtitle="Process arrivals and departures"
+      />
+      
+      <Stack spacing={3}>
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Summary Cards */}
+        <Stack direction="row" spacing={3}>
+          <Card 
+            sx={{ 
+              flex: 1,
+              borderRadius: 3, 
+              boxShadow: tokens.shadows.card,
+              border: `1px solid ${tokens.colors.grey[200]}`,
+            }}
+          >
+            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 3,
+                    bgcolor: alpha("#22c55e", 0.1),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <CheckInIcon sx={{ color: "#22c55e", fontSize: 28 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h4" fontWeight="bold">
+                    {arrivalsCount}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Arrivals Today
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          <Card 
+            sx={{ 
+              flex: 1,
+              borderRadius: 3, 
+              boxShadow: tokens.shadows.card,
+              border: `1px solid ${tokens.colors.grey[200]}`,
+            }}
+          >
+            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 3,
+                    bgcolor: alpha("#a855f7", 0.1),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <CheckOutIcon sx={{ color: "#a855f7", fontSize: 28 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h4" fontWeight="bold">
+                    {departuresCount}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Departures Today
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          <Card 
+            sx={{ 
+              flex: 1,
+              borderRadius: 3, 
+              boxShadow: tokens.shadows.card,
+              border: `1px solid ${tokens.colors.grey[200]}`,
+            }}
+          >
+            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 3,
+                    bgcolor: alpha("#3b82f6", 0.1),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <RoomIcon sx={{ color: "#3b82f6", fontSize: 28 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h4" fontWeight="bold">
+                    {inHouseCount}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    In-House Guests
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
+
+        {/* Main Table Card */}
+        <Card 
+          sx={{ 
+            borderRadius: 3, 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Tabs & Search */}
+          <Box sx={{ borderBottom: `1px solid ${tokens.colors.grey[200]}` }}>
+            <Stack 
+              direction="row" 
+              justifyContent="space-between" 
+              alignItems="center"
+              sx={{ px: 3, pt: 2 }}
+            >
+              <Tabs 
+                value={activeTab} 
+                onChange={(_, value) => { setActiveTab(value); setPage(0); }}
+                sx={{
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    minWidth: 'auto',
+                    px: 2,
+                  },
+                }}
+              >
+                <Tab 
+                  label={
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <span>Arrivals</span>
+                      {arrivalsCount > 0 && (
+                        <Chip 
+                          label={arrivalsCount} 
+                          size="small" 
+                          sx={{ 
+                            height: 20, 
+                            fontSize: '0.75rem',
+                            bgcolor: alpha("#22c55e", 0.15),
+                            color: "#166534",
+                          }} 
+                        />
+                      )}
+                    </Stack>
+                  } 
+                />
+                <Tab 
+                  label={
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <span>Departures</span>
+                      {departuresCount > 0 && (
+                        <Chip 
+                          label={departuresCount} 
+                          size="small" 
+                          sx={{ 
+                            height: 20, 
+                            fontSize: '0.75rem',
+                            bgcolor: alpha("#a855f7", 0.15),
+                            color: "#6b21a8",
+                          }} 
+                        />
+                      )}
+                    </Stack>
+                  } 
+                />
+                <Tab 
+                  label={
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <span>In-House</span>
+                      {inHouseCount > 0 && (
+                        <Chip 
+                          label={inHouseCount} 
+                          size="small" 
+                          sx={{ 
+                            height: 20, 
+                            fontSize: '0.75rem',
+                            bgcolor: alpha("#3b82f6", 0.15),
+                            color: "#1d4ed8",
+                          }} 
+                        />
+                      )}
+                    </Stack>
+                  } 
+                />
+                <Tab label="All" />
+              </Tabs>
+
+              <TextField
+                placeholder="Search by code..."
+                size="small"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ width: 240 }}
+              />
+            </Stack>
+          </Box>
+
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Reservation Code</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Check-in</TableCell>
+                  <TableCell>Check-out</TableCell>
+                  <TableCell>Guests</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedReservations.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <EventIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          {activeTab === 0 && "No arrivals for today"}
+                          {activeTab === 1 && "No departures for today"}
+                          {activeTab === 2 && "No guests currently in-house"}
+                          {activeTab === 3 && "No reservations found"}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {activeTab === 3 && searchQuery && "Try a different search term"}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedReservations.map((reservation, index) => {
+                    const status = STATUS_CONFIG[reservation.status] || STATUS_CONFIG.HOLD;
+                    const checkIn = formatDateLabel(reservation.checkInDate);
+                    const checkOut = formatDateLabel(reservation.checkOutDate);
+                    
+                    const canCheckIn = reservation.status === "CONFIRMED";
+                    const canCheckOut = reservation.status === "CHECKED_IN";
+
+                    return (
+                      <TableRow 
+                        key={reservation.id} 
+                        hover
+                        sx={{
+                          '&:hover': {
+                            bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                          }
+                        }}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {page * rowsPerPage + index + 1}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography 
+                            variant="body2" 
+                            fontWeight={600}
+                            sx={{ 
+                              fontFamily: 'monospace',
+                              bgcolor: tokens.colors.grey[100],
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: 1,
+                              display: 'inline-block',
+                            }}
+                          >
+                            {reservation.code}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            icon={status.icon as React.ReactElement}
+                            label={status.label}
+                            size="small"
+                            sx={{
+                              bgcolor: status.bg,
+                              color: status.color,
+                              fontWeight: 600,
+                              '& .MuiChip-icon': {
+                                color: status.color,
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <CalendarIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
+                            <Typography 
+                              variant="body2"
+                              sx={{ 
+                                fontWeight: checkIn.isSpecial ? 600 : 400,
+                                color: checkIn.isSpecial ? tokens.colors.primary.main : 'inherit',
+                              }}
+                            >
+                              {checkIn.label}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <CalendarIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
+                            <Typography 
+                              variant="body2"
+                              sx={{ 
+                                fontWeight: checkOut.isSpecial ? 600 : 400,
+                                color: checkOut.isSpecial ? tokens.colors.primary.main : 'inherit',
+                              }}
+                            >
+                              {checkOut.label}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <PersonIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
+                            <Typography variant="body2">
+                              {reservation.adults} adult{reservation.adults !== 1 ? 's' : ''}
+                              {reservation.children > 0 && `, ${reservation.children} child${reservation.children !== 1 ? 'ren' : ''}`}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            {canCheckIn && (
+                              <Tooltip title="Check-in guest">
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<CheckInIcon />}
+                                  onClick={() => handleCheckIn(reservation.id)}
+                                  disabled={loading}
+                                  sx={{
+                                    bgcolor: "#22c55e",
+                                    '&:hover': { bgcolor: "#16a34a" },
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  Check-in
+                                </Button>
+                              </Tooltip>
+                            )}
+                            {canCheckOut && (
+                              <Tooltip title="Check-out guest">
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<CheckOutIcon />}
+                                  onClick={() => handleCheckOut(reservation.id)}
+                                  disabled={loading}
+                                  sx={{
+                                    bgcolor: "#a855f7",
+                                    '&:hover': { bgcolor: "#9333ea" },
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  Check-out
+                                </Button>
+                              </Tooltip>
+                            )}
+                            {!canCheckIn && !canCheckOut && (
+                              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                No action available
+                              </Typography>
+                            )}
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {filteredReservations.length > 0 && (
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredReservations.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+            />
+          )}
+        </Card>
+      </Stack>
+    </Box>
   );
 }

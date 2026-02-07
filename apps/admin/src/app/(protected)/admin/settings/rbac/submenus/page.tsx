@@ -24,9 +24,19 @@ import {
   Typography,
   Stack,
   Grid,
-  TablePagination
+  TablePagination,
+  Collapse,
+  alpha,
+  Chip,
 } from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from "@mui/icons-material";
+import { 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Add as AddIcon,
+  Close as CloseIcon,
+  SubdirectoryArrowRight as SubmenuIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 const EMPTY_FORM = {
   menuId: "",
@@ -43,6 +53,7 @@ export default function SubmenusPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   async function loadData() {
     setError(null);
@@ -71,11 +82,13 @@ export default function SubmenusPage() {
       route: submenu.route,
       sortOrder: String(submenu.sortOrder ?? 0)
     });
+    setShowForm(true);
   }
 
   function resetForm() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setShowForm(false);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -136,172 +149,341 @@ export default function SubmenusPage() {
   };
 
   return (
-    <main>
-      <PageHeader title="Submenus" subtitle="Menu children with routes" />
+    <Box component="main">
+      <PageHeader 
+        title="Submenus" 
+        subtitle="Menu children with routes"
+        action={
+          !showForm ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setShowForm(true)}
+              sx={{
+                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+              }}
+            >
+              New Submenu
+            </Button>
+          ) : null
+        }
+      />
 
       <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-        <Card>
-            <CardContent>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                    {editingId ? "Edit Submenu" : "Create Submenu"}
-                </Typography>
-                
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-                    <Grid container spacing={3}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                id="submenu-parent-menu"
-                                select
-                                label="Parent Menu"
-                                value={form.menuId}
-                                onChange={(e) => setForm({ ...form, menuId: e.target.value })}
-                                required
-                                fullWidth
-                            >
-                                <MenuItem value="">Select menu</MenuItem>
-                                {menus.map((menu) => (
-                                <MenuItem key={menu.id} value={menu.id}>
-                                    {menu.label}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                id="submenu-key"
-                                label="Key"
-                                value={form.key}
-                                onChange={(e) => setForm({ ...form, key: e.target.value })}
-                                required
-                                fullWidth
-                                helperText="Unique identifier for navigation"
-                            />
-                        </Grid>
-                        
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                id="submenu-label"
-                                label="Label"
-                                value={form.label}
-                                onChange={(e) => setForm({ ...form, label: e.target.value })}
-                                required
-                                fullWidth
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                id="submenu-route"
-                                label="Route / Path"
-                                value={form.route}
-                                onChange={(e) => setForm({ ...form, route: e.target.value })}
-                                required
-                                fullWidth
-                            />
-                        </Grid>
-                        
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                id="submenu-sort-order"
-                                label="Sort Order"
-                                type="number"
-                                value={form.sortOrder}
-                                onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
-                                fullWidth
-                            />
-                        </Grid>
-
-                         <Grid size={{ xs: 12 }}>
-                             <Stack direction="row" spacing={2} justifyContent="flex-end">
-                                <Button 
-                                    type="submit" 
-                                    variant="contained" 
-                                    disabled={loading}
-                                    startIcon={!editingId && !loading && <AddIcon />}
-                                >
-                                    {loading ? "Saving..." : editingId ? "Update" : "Create"}
-                                </Button>
-                                {editingId && (
-                                    <Button variant="outlined" onClick={resetForm}>
-                                        Cancel
-                                    </Button>
-                                )}
-                            </Stack>
-                        </Grid>
-                    </Grid>
+        {/* Form Card */}
+        <Collapse in={showForm}>
+          <Card 
+            sx={{ 
+              borderRadius: 3, 
+              boxShadow: tokens.shadows.card,
+              border: `1px solid ${tokens.colors.grey[200]}`,
+            }}
+          >
+            <CardContent sx={{ p: 4 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 4,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 3,
+                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <SubmenuIcon sx={{ color: tokens.colors.primary.main }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight="bold">
+                      {editingId ? "Edit Submenu" : "Create New Submenu"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {editingId ? "Update submenu details" : "Add a new navigation submenu"}
+                    </Typography>
+                  </Box>
                 </Box>
-            </CardContent>
-        </Card>
+                <IconButton 
+                  onClick={resetForm} 
+                  size="small"
+                  sx={{
+                    bgcolor: tokens.colors.grey[100],
+                    '&:hover': {
+                      bgcolor: tokens.colors.grey[200],
+                    }
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
 
-        <Card>
-            <TableContainer component={Paper} elevation={0}>
-                <Table>
-                <TableHead>
-                    <TableRow>
-                     <TableCell sx={{ fontWeight: "bold", width: 60 }}>No</TableCell>
-                    <TableCell>Key</TableCell>
-                    <TableCell>Label</TableCell>
-                    <TableCell>Route</TableCell>
-                    <TableCell>Parent Menu</TableCell>
-                    <TableCell align="right">Actions</TableCell>
+              <Box component="form" onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      id="submenu-parent-menu"
+                      select
+                      label="Parent Menu"
+                      value={form.menuId}
+                      onChange={(e) => setForm({ ...form, menuId: e.target.value })}
+                      required
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                    >
+                      <MenuItem value="">Select menu</MenuItem>
+                      {menus.map((menu) => (
+                        <MenuItem key={menu.id} value={menu.id}>
+                          {menu.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      id="submenu-key"
+                      label="Key"
+                      value={form.key}
+                      onChange={(e) => setForm({ ...form, key: e.target.value })}
+                      required
+                      fullWidth
+                      helperText="Unique identifier for navigation"
+                      InputLabelProps={{ shrink: true }}
+                      placeholder="e.g., users, roles"
+                    />
+                  </Grid>
+                  
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      id="submenu-label"
+                      label="Label"
+                      value={form.label}
+                      onChange={(e) => setForm({ ...form, label: e.target.value })}
+                      required
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      placeholder="Display name"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      id="submenu-route"
+                      label="Route / Path"
+                      value={form.route}
+                      onChange={(e) => setForm({ ...form, route: e.target.value })}
+                      required
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      placeholder="/admin/..."
+                    />
+                  </Grid>
+                  
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      id="submenu-sort-order"
+                      label="Sort Order"
+                      type="number"
+                      value={form.sortOrder}
+                      onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12 }}>
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                      <Button 
+                        onClick={resetForm}
+                        variant="outlined"
+                        sx={{ px: 3 }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        variant="contained" 
+                        disabled={loading}
+                        sx={{ 
+                          px: 4,
+                          boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+                        }}
+                      >
+                        {loading ? "Saving..." : editingId ? "Update Submenu" : "Create Submenu"}
+                      </Button>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Box>
+            </CardContent>
+          </Card>
+        </Collapse>
+
+        {/* Table Card */}
+        <Card 
+          sx={{ 
+            borderRadius: 3, 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Key</TableCell>
+                  <TableCell>Label</TableCell>
+                  <TableCell>Route</TableCell>
+                  <TableCell>Parent Menu</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {submenus.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <SubmenuIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No submenus found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          Create your first navigation submenu
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => setShowForm(true)}
+                          size="small"
+                        >
+                          Add Submenu
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  submenus
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((submenu, index) => (
+                    <TableRow 
+                      key={submenu.id} 
+                      hover
+                      sx={{
+                        '&:hover': {
+                          bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {page * rowsPerPage + index + 1}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box 
+                          component="span" 
+                          sx={{ 
+                            bgcolor: tokens.colors.grey[100], 
+                            px: 1.5, 
+                            py: 0.5, 
+                            borderRadius: 1, 
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          {submenu.key}
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{submenu.label}</TableCell>
+                      <TableCell>
+                        <Box 
+                          component="span" 
+                          sx={{ 
+                            bgcolor: tokens.colors.grey[100], 
+                            px: 1.5, 
+                            py: 0.5, 
+                            borderRadius: 1, 
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          {submenu.route}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={menus.find((m) => m.id === submenu.menuId)?.label || submenu.menuId}
+                          size="small"
+                          sx={{
+                            bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                            color: tokens.colors.primary.main,
+                            fontWeight: 600,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => startEdit(submenu)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                              color: tokens.colors.primary.main,
+                              '&:hover': {
+                                bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                              }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDelete(submenu.id)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.error.main, 0.08),
+                              color: tokens.colors.error.main,
+                              '&:hover': {
+                                bgcolor: alpha(tokens.colors.error.main, 0.15),
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      </TableCell>
                     </TableRow>
-                </TableHead>
-                <TableBody>
-                    {submenus
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((submenu, index) => (
-                    <TableRow key={submenu.id} hover>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>{submenu.key}</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{submenu.label}</TableCell>
-                        <TableCell>
-                            <Box 
-                                component="span" 
-                                sx={{ 
-                                    bgcolor: 'background.default', 
-                                    px: 1, 
-                                    py: 0.5, 
-                                    borderRadius: 1, 
-                                    fontFamily: 'monospace',
-                                    fontSize: '0.875rem'
-                                }}
-                            >
-                                {submenu.route}
-                            </Box>
-                        </TableCell>
-                        <TableCell>{menus.find((m) => m.id === submenu.menuId)?.label || submenu.menuId}</TableCell>
-                        <TableCell align="right">
-                        <IconButton size="small" onClick={() => startEdit(submenu)} color="primary">
-                            <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(submenu.id)} color="error">
-                            <DeleteIcon />
-                        </IconButton>
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                    {submenus.length === 0 && (
-                     <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                            No submenus found
-                        </TableCell>
-                     </TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </TableContainer>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {submenus.length > 0 && (
             <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={submenus.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={submenus.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
             />
+          )}
         </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

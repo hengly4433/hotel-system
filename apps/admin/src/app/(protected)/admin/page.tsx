@@ -1,7 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { Paper, Typography, Box } from "@mui/material"; // Removed Grid imports
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { Paper, Typography, Box, Alert, Skeleton, Table, TableHead, TableRow, TableCell, TableBody, Chip, Stack, alpha } from "@mui/material";
 import { GradientCard } from "@/components/ui/GradientCard";
 import PageHeader from "@/components/ui/PageHeader";
 import {
@@ -11,134 +11,467 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
+  AreaChart,
+  Area,
 } from "recharts";
+import { 
+  TrendingUp, 
+  EventNote, 
+  People,
+  Hotel,
+  FlightLand as ArrivalsIcon,
+  FlightTakeoff as DeparturesIcon,
+  CleaningServices as HousekeepingIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
+import { apiJson } from "@/lib/api/client";
+import { getErrorMessage } from "@/lib/api/errors";
 
-const visitData = [
-  { name: "JAN", chn: 20, usa: 40, uk: 10 },
-  { name: "FEB", chn: 40, usa: 30, uk: 20 },
-  { name: "MAR", chn: 30, usa: 20, uk: 10 },
-  { name: "APR", chn: 50, usa: 40, uk: 30 },
-  { name: "MAY", chn: 40, usa: 60, uk: 40 },
-  { name: "JUN", chn: 30, usa: 70, uk: 50 },
-  { name: "JUL", chn: 50, usa: 40, uk: 30 },
-  { name: "AUG", chn: 60, usa: 40, uk: 20 },
-];
+// Types for API responses
+type RevenueReportItem = {
+  date: string;
+  paymentMethod: string;
+  totalAmount: number;
+  transactionCount: number;
+};
 
-const sourceData = [
-  { name: "Search Engines", value: 30 },
-  { name: "Direct Click", value: 30 },
-  { name: "Bookmarks Click", value: 40 },
-];
+type OccupancyReportItem = {
+  date: string;
+  totalRooms: number;
+  occupiedRooms: number;
+  occupancyPercentage: number;
+};
 
-const COLORS = ["#ff718b", "#2bc6fc", "#8e67f0"];
+type GuestInHouseItem = {
+  reservationId: string;
+  guestName: string;
+  roomNumber: string;
+  checkInDate: string;
+  checkOutDate: string;
+};
+
+type HousekeepingStatusItem = {
+  status: string;
+  count: number;
+};
+
+type Reservation = {
+  id: string;
+  status: string;
+  checkInDate: string;
+  checkOutDate: string;
+  guestName: string;
+  roomNumber: string;
+};
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default function AdminDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Data states
+  const [revenueData, setRevenueData] = useState<RevenueReportItem[]>([]);
+  const [occupancyData, setOccupancyData] = useState<OccupancyReportItem[]>([]);
+  const [guestsInHouse, setGuestsInHouse] = useState<GuestInHouseItem[]>([]);
+  const [arrivalsToday, setArrivalsToday] = useState<GuestInHouseItem[]>([]);
+  const [departuresToday, setDeparturesToday] = useState<GuestInHouseItem[]>([]);
+  const [housekeepingStatus, setHousekeepingStatus] = useState<HousekeepingStatusItem[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+
+  const loadDashboardData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const today = new Date();
+      const fromDate = new Date(today);
+      fromDate.setDate(fromDate.getDate() - 7);
+      
+      const formatDateParam = (d: Date) => d.toISOString().split('T')[0];
+      
+      const [
+        revenueRes,
+        occupancyRes,
+        guestsRes,
+        arrivalsRes,
+        departuresRes,
+        housekeepingRes,
+        reservationRes,
+      ] = await Promise.all([
+        apiJson<RevenueReportItem[]>(`reports/revenue?fromDate=${formatDateParam(fromDate)}&toDate=${formatDateParam(today)}`).catch(() => []),
+        apiJson<OccupancyReportItem[]>(`reports/occupancy?fromDate=${formatDateParam(fromDate)}&toDate=${formatDateParam(today)}`).catch(() => []),
+        apiJson<GuestInHouseItem[]>(`reports/guests-in-house`).catch(() => []),
+        apiJson<GuestInHouseItem[]>(`reports/arrivals`).catch(() => []),
+        apiJson<GuestInHouseItem[]>(`reports/departures`).catch(() => []),
+        apiJson<HousekeepingStatusItem[]>(`reports/housekeeping`).catch(() => []),
+        apiJson<Reservation[]>(`reservations`).catch(() => []),
+      ]);
+      
+      setRevenueData(revenueRes);
+      setOccupancyData(occupancyRes);
+      setGuestsInHouse(guestsRes);
+      setArrivalsToday(arrivalsRes);
+      setDeparturesToday(departuresRes);
+      setHousekeepingStatus(housekeepingRes);
+      setReservations(reservationRes);
+      setError(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDashboardData();
+  }, [loadDashboardData]);
+
+  // Calculate metrics
+  const totalRevenue = useMemo(() => 
+    revenueData.reduce((sum, r) => sum + (r.totalAmount || 0), 0),
+  [revenueData]);
+  
+  const totalBookings = useMemo(() => 
+    revenueData.reduce((sum, r) => sum + (r.transactionCount || 0), 0),
+  [revenueData]);
+  
+  const activeGuests = guestsInHouse.length;
+  
+  const avgOccupancy = useMemo(() => {
+    if (occupancyData.length === 0) return 0;
+    return occupancyData.reduce((sum, o) => sum + (o.occupancyPercentage || 0), 0) / occupancyData.length;
+  }, [occupancyData]);
+
+  // Group revenue by date for chart
+  const revenueChartData = useMemo(() => {
+    const byDate = new Map<string, number>();
+    revenueData.forEach(r => {
+      const current = byDate.get(r.date) || 0;
+      byDate.set(r.date, current + (r.totalAmount || 0));
+    });
+    return Array.from(byDate.entries())
+      .map(([date, amount]) => ({ date: formatDate(date), amount }))
+      .slice(-7);
+  }, [revenueData]);
+
+  // Housekeeping donut chart data
+  const housekeepingChartData = useMemo(() => {
+    const colors: Record<string, string> = {
+      'DONE': '#22c55e',
+      'IN_PROGRESS': '#f59e0b',
+      'PENDING': '#ef4444',
+      'INSPECTED': '#3b82f6',
+    };
+    return housekeepingStatus
+      .filter(h => h.status && h.count != null)
+      .map(h => ({
+        name: h.status,
+        value: h.count || 0,
+        color: colors[h.status] || tokens.colors.grey[400],
+      }));
+  }, [housekeepingStatus]);
+
+  const totalHousekeepingTasks = housekeepingChartData.reduce((sum, h) => sum + (h.value || 0), 0);
+
+  // Recent reservations for table
+  const recentReservations = useMemo(() => 
+    reservations.slice(0, 5),
+  [reservations]);
+
+  function getStatusColor(status: string) {
+    switch(status) {
+      case "CONFIRMED": return { bg: alpha("#3b82f6", 0.15), color: "#1e40af" };
+      case "CHECKED_IN": return { bg: alpha("#22c55e", 0.15), color: "#166534" };
+      case "CHECKED_OUT": return { bg: alpha("#8b5cf6", 0.15), color: "#6b21a8" };
+      case "CANCELLED": return { bg: alpha("#ef4444", 0.15), color: "#b91c1c" };
+      default: return { bg: tokens.colors.grey[100], color: tokens.colors.grey[600] };
+    }
+  }
+
   return (
-    <main>
-      <PageHeader title="Dashboard" subtitle="Overview" />
+    <Box component="main">
+      <PageHeader title="Dashboard" subtitle="Welcome back! Here's what's happening today." />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       {/* Top Cards */}
-      <Box sx={{ display: 'flex', gap: 3, mb: 4, flexDirection: { xs: 'column', md: 'row' } }}>
-        <Box sx={{ flex: 1 }}>
-          <GradientCard
-            title="Weekly Sales"
-            value="$ 15,0000"
-            change="Increased by 60%"
-            gradient="linear-gradient(to right, #ffbf96, #fe7096)"
-          />
-        </Box>
-        <Box sx={{ flex: 1 }}>
-          <GradientCard
-            title="Weekly Orders"
-            value="45,6334"
-            change="Decreased by 10%"
-            gradient="linear-gradient(to right, #90caf9, #047edf)"
-          />
-        </Box>
-        <Box sx={{ flex: 1 }}>
-          <GradientCard
-            title="Visitors Online"
-            value="95,5741"
-            change="Increased by 5%"
-            gradient="linear-gradient(to right, #84d9d2, #07cdae)"
-          />
-        </Box>
+      <Box sx={{ display: 'grid', gap: 3, mb: 4, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' } }}>
+        {loading ? (
+          <>
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} variant="rounded" height={160} sx={{ borderRadius: 3 }} />
+            ))}
+          </>
+        ) : (
+          <>
+            <GradientCard
+              title="Weekly Revenue"
+              value={formatCurrency(totalRevenue)}
+              change={revenueData.length > 0 ? `${revenueData.length} days` : undefined}
+              trend="up"
+              icon={<TrendingUp />}
+              gradient="linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)"
+            />
+            <GradientCard
+              title="New Bookings"
+              value={String(totalBookings)}
+              change={reservations.length > 0 ? `${reservations.filter(r => r.status === 'CONFIRMED').length} confirmed` : undefined}
+              trend="up"
+              icon={<EventNote />}
+              gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+            />
+            <GradientCard
+              title="Active Guests"
+              value={String(activeGuests)}
+              change={arrivalsToday.length > 0 ? `+${arrivalsToday.length} arriving` : undefined}
+              trend="up"
+              icon={<People />}
+              gradient="linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
+            />
+            <GradientCard
+              title="Occupancy Rate"
+              value={`${Math.round(avgOccupancy)}%`}
+              change={occupancyData.length > 0 ? "7-day avg" : undefined}
+              trend="up"
+              icon={<Hotel />}
+              gradient={`linear-gradient(135deg, ${tokens.colors.primary.main} 0%, ${tokens.colors.primary.dark} 100%)`}
+            />
+          </>
+        )}
+      </Box>
+
+      {/* Quick Stats Row */}
+      <Box sx={{ display: 'grid', gap: 3, mb: 4, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' } }}>
+        <Paper sx={{ p: 3, borderRadius: 3, border: `1px solid ${tokens.colors.grey[200]}`, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ 
+            width: 48, 
+            height: 48, 
+            borderRadius: 2, 
+            bgcolor: alpha('#3b82f6', 0.1),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <ArrivalsIcon sx={{ color: '#3b82f6' }} />
+          </Box>
+          <Box>
+            <Typography variant="h5" fontWeight="bold">{arrivalsToday.length}</Typography>
+            <Typography variant="body2" color="text.secondary">Arrivals Today</Typography>
+          </Box>
+        </Paper>
+        
+        <Paper sx={{ p: 3, borderRadius: 3, border: `1px solid ${tokens.colors.grey[200]}`, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ 
+            width: 48, 
+            height: 48, 
+            borderRadius: 2, 
+            bgcolor: alpha('#f59e0b', 0.1),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <DeparturesIcon sx={{ color: '#f59e0b' }} />
+          </Box>
+          <Box>
+            <Typography variant="h5" fontWeight="bold">{departuresToday.length}</Typography>
+            <Typography variant="body2" color="text.secondary">Departures Today</Typography>
+          </Box>
+        </Paper>
+        
+        <Paper sx={{ p: 3, borderRadius: 3, border: `1px solid ${tokens.colors.grey[200]}`, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ 
+            width: 48, 
+            height: 48, 
+            borderRadius: 2, 
+            bgcolor: alpha('#22c55e', 0.1),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <HousekeepingIcon sx={{ color: '#22c55e' }} />
+          </Box>
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              {housekeepingStatus.find(h => h.status === 'DONE')?.count || 0}/{totalHousekeepingTasks}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">Rooms Cleaned</Typography>
+          </Box>
+        </Paper>
       </Box>
 
       {/* Charts Row */}
-      <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
-        {/* Bar Chart */}
-        <Box sx={{ flex: 7 }}>
-          <Paper sx={{ p: 3, height: 400, borderRadius: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6" fontWeight="bold">Visit And Sales Statistics</Typography>
-                <Box>
-                    {/* Fake Legend */}
-                    <Typography component="span" variant="caption" sx={{ color: '#b66dff', mr: 2 }}>● CHN</Typography>
-                    <Typography component="span" variant="caption" sx={{ color: '#ff718b', mr: 2 }}>● USA</Typography>
-                    <Typography component="span" variant="caption" sx={{ color: '#25bef9', mr: 2 }}>● UK</Typography>
-                </Box>
-            </Box>
-            <ResponsiveContainer width="100%" height="90%">
-              <BarChart data={visitData} barSize={10}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9aa0ac', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9aa0ac', fontSize: 12}} />
-                <Tooltip cursor={{fill: 'transparent'}} />
-                <Bar dataKey="chn" fill="#b66dff" radius={[10, 10, 0, 0]} />
-                <Bar dataKey="usa" fill="#ff718b" radius={[10, 10, 0, 0]} />
-                <Bar dataKey="uk" fill="#25bef9" radius={[10, 10, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Box>
+      <Box sx={{ display: 'grid', gap: 3, mb: 4, gridTemplateColumns: { xs: '1fr', lg: '7fr 5fr' } }}>
+        {/* Revenue Chart */}
+        <Paper sx={{ p: 3, borderRadius: 3, border: `1px solid ${tokens.colors.grey[200]}` }}>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" fontWeight="bold">Revenue Trend</Typography>
+            <Typography variant="body2" color="text.secondary">Last 7 days</Typography>
+          </Box>
+          <Box sx={{ height: 280 }}>
+            {loading ? (
+              <Skeleton variant="rounded" height="100%" />
+            ) : revenueChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={revenueChartData}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={tokens.colors.primary.main} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={tokens.colors.primary.main} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={tokens.colors.grey[200]} />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: tokens.colors.grey[500], fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: tokens.colors.grey[500], fontSize: 12 }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                  <Tooltip 
+                    formatter={(value) => [formatCurrency(Number(value)), 'Revenue']}
+                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="amount" 
+                    stroke={tokens.colors.primary.main} 
+                    strokeWidth={2}
+                    fillOpacity={1} 
+                    fill="url(#colorRevenue)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography color="text.secondary">No revenue data available</Typography>
+              </Box>
+            )}
+          </Box>
+        </Paper>
 
-        {/* Donut Chart */}
-        <Box sx={{ flex: 5 }}>
-            <Paper sx={{ p: 3, height: 400, borderRadius: 3 }}>
-            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Traffic Sources</Typography>
-            <Box sx={{ height: 250, position: 'relative' }}>
+        {/* Housekeeping Status Donut */}
+        <Paper sx={{ p: 3, borderRadius: 3, border: `1px solid ${tokens.colors.grey[200]}` }}>
+          <Typography variant="h6" fontWeight="bold">Housekeeping Status</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Today's task overview</Typography>
+          
+          {loading ? (
+            <Skeleton variant="circular" width={180} height={180} sx={{ mx: 'auto' }} />
+          ) : housekeepingChartData.length > 0 ? (
+            <>
+              <Box sx={{ height: 180, position: 'relative' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                    <Pie
-                        data={sourceData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        paddingAngle={0}
-                        dataKey="value"
+                  <PieChart>
+                    <Pie 
+                      data={housekeepingChartData} 
+                      cx="50%" 
+                      cy="50%" 
+                      innerRadius={55} 
+                      outerRadius={80} 
+                      paddingAngle={3} 
+                      dataKey="value" 
+                      strokeWidth={0}
                     >
-                        {sourceData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
+                      {housekeepingChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
                     </Pie>
-                    </PieChart>
+                  </PieChart>
                 </ResponsiveContainer>
-             </Box>
-             <Box sx={{ mt: 2 }}>
-                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}><span style={{width: 10, height: 10, borderRadius: '50%', background: '#ff718b', marginRight: 8}}></span> Search Engines</Typography>
-                    <Typography variant="body2" color="text.secondary">30%</Typography>
-                 </Box>
-                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}><span style={{width: 10, height: 10, borderRadius: '50%', background: '#2bc6fc', marginRight: 8}}></span> Direct Click</Typography>
-                    <Typography variant="body2" color="text.secondary">30%</Typography>
-                 </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}><span style={{width: 10, height: 10, borderRadius: '50%', background: '#8e67f0', marginRight: 8}}></span> Bookmarks Click</Typography>
-                    <Typography variant="body2" color="text.secondary">40%</Typography>
-                 </Box>
-             </Box>
-          </Paper>
-        </Box>
+                <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                  <Typography variant="h5" fontWeight="bold">{totalHousekeepingTasks}</Typography>
+                  <Typography variant="caption" color="text.secondary">Tasks</Typography>
+                </Box>
+              </Box>
+              <Box sx={{ mt: 2 }}>
+                {housekeepingChartData.map((item, index) => (
+                  <Box key={`${item.name}-${index}`} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, px: 1.5, borderRadius: 1, mb: 0.5, bgcolor: alpha(item.color, 0.08) }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: item.color }} />
+                      <Typography variant="body2">{item.name}</Typography>
+                    </Box>
+                    <Typography variant="body2" fontWeight={600}>{item.value}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            </>
+          ) : (
+            <Box sx={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography color="text.secondary">No housekeeping data</Typography>
+            </Box>
+          )}
+        </Paper>
       </Box>
-    </main>
+
+      {/* Recent Reservations */}
+      <Paper sx={{ borderRadius: 3, border: `1px solid ${tokens.colors.grey[200]}`, overflow: 'hidden' }}>
+        <Box sx={{ p: 3, borderBottom: `1px solid ${tokens.colors.grey[200]}` }}>
+          <Typography variant="h6" fontWeight="bold">Recent Reservations</Typography>
+          <Typography variant="body2" color="text.secondary">Latest bookings in the system</Typography>
+        </Box>
+        
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Guest</TableCell>
+              <TableCell>Room</TableCell>
+              <TableCell>Check In</TableCell>
+              <TableCell>Check Out</TableCell>
+              <TableCell>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              [...Array(3)].map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton /></TableCell>
+                  <TableCell><Skeleton /></TableCell>
+                  <TableCell><Skeleton /></TableCell>
+                  <TableCell><Skeleton /></TableCell>
+                  <TableCell><Skeleton width={80} /></TableCell>
+                </TableRow>
+              ))
+            ) : recentReservations.length > 0 ? (
+              recentReservations.map((res) => {
+                const statusStyle = getStatusColor(res.status);
+                return (
+                  <TableRow key={res.id} hover>
+                    <TableCell sx={{ fontWeight: 500 }}>{res.guestName || '-'}</TableCell>
+                    <TableCell>{res.roomNumber || '-'}</TableCell>
+                    <TableCell>{res.checkInDate}</TableCell>
+                    <TableCell>{res.checkOutDate}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={res.status} 
+                        size="small" 
+                        sx={{ 
+                          bgcolor: statusStyle.bg, 
+                          color: statusStyle.color,
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                        }} 
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                  <Typography color="text.secondary">No reservations found</Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Paper>
+    </Box>
   );
 }

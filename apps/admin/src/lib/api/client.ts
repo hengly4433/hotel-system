@@ -8,6 +8,15 @@ export async function apiFetch(path: string, init?: RequestInit) {
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      // Trigger logout to clear cookies
+      await fetch("/api/auth/logout", { method: "POST" });
+      // Redirect to login
+      if (typeof window !== "undefined") {
+        window.location.href = "/login?reason=session_expired";
+      }
+    }
+
     const data = await res.json().catch(() => null);
     const message = data?.message || `Request failed: ${res.status}`;
     throw new Error(message);
