@@ -6,6 +6,7 @@ import java.util.UUID;
 public record BlogResponse(
         UUID id,
         String title,
+        String slug,
         String tag,
         String description,
         String imageUrl,

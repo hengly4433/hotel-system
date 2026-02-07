@@ -57,6 +57,7 @@ public class BlogService {
 
     private void updateEntity(BlogEntity entity, BlogRequest request) {
         entity.setTitle(request.title());
+        entity.setSlug(request.slug());
         entity.setTag(request.tag());
         entity.setDescription(request.description());
         entity.setImageUrl(request.imageUrl());
@@ -68,6 +69,7 @@ public class BlogService {
         return new BlogResponse(
                 entity.getId(),
                 entity.getTitle(),
+                entity.getSlug(),
                 entity.getTag(),
                 entity.getDescription(),
                 entity.getImageUrl(),
