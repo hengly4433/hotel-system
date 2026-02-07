@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { BLOGS } from "@/app/content/marketing";
+// import { BLOGS } from "@/app/content/marketing"; // Removed as now unused
+import DatePicker from "@/app/components/DatePicker";
 
 type PropertyOption = {
   id: string;
@@ -29,10 +30,32 @@ type RoomType = {
   images: RoomTypeImage[];
 };
 
+type Blog = {
+  id: string;
+  title: string;
+  tag: string;
+  description: string;
+  imageUrl: string;
+  content: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+type PageContent = {
+  id: string;
+  sectionKey: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  isActive: boolean;
+};
+
 type HomeClientProps = {
   properties: PropertyOption[];
   roomTypes?: RoomType[];
   galleryImages?: string[];
+  blogs?: Blog[];
+  pageContents?: PageContent[];
   hasPropertyError?: boolean;
 };
 
@@ -79,6 +102,8 @@ export default function HomeClient({
   properties,
   roomTypes: initialRoomTypes = [],
   galleryImages: initialGalleryImages = [],
+  blogs = [],
+  pageContents = [],
   hasPropertyError
 }: HomeClientProps) {
   const router = useRouter();
@@ -92,9 +117,26 @@ export default function HomeClient({
   const [roomLoading, setRoomLoading] = useState(false);
   const [roomError, setRoomError] = useState<string | null>(null);
 
+  // Helper to get section content
+  const getContent = (key: string) => pageContents.find((c) => c.sectionKey === key);
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!propertyId || !from || !to) return;
+    
+    // Debug logging
+    console.log("[BookingForm] Submit triggered");
+    console.log("[BookingForm] State values:", { propertyId, from, to, adults, children });
+    
+    if (!propertyId || !from || !to) {
+      console.warn("[BookingForm] Missing required fields:", {
+        propertyId: propertyId || "(empty)",
+        from: from || "(empty)",
+        to: to || "(empty)"
+      });
+      alert(`Missing required fields:\n${!propertyId ? "• Property\n" : ""}${!from ? "• Arrival date\n" : ""}${!to ? "• Departure date" : ""}`);
+      return;
+    }
+    
     const params = new URLSearchParams({
       propertyId,
       from,
@@ -102,7 +144,9 @@ export default function HomeClient({
       adults,
       children
     });
-    router.push(`/search?${params.toString()}`);
+    const url = `/search?${params.toString()}`;
+    console.log("[BookingForm] Navigating to:", url);
+    router.push(url);
   }
 
   useEffect(() => {
@@ -142,6 +186,11 @@ export default function HomeClient({
   }, [propertyId]);
 
   const visibleGalleryImages = useMemo(() => galleryImages.slice(0, 8), [galleryImages]);
+
+  const roomsContent = getContent("home.rooms");
+  const galleryContent = getContent("home.gallery");
+  const blogContent = getContent("home.blog");
+  const contactContent = getContent("home.contact");
 
   return (
     <main>
@@ -183,11 +232,11 @@ export default function HomeClient({
               <div className="booking-row">
                 <label>
                   Arrival
-                  <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} required />
+                  <DatePicker value={from} onChange={(value) => setFrom(value)} required minDate={today} />
                 </label>
                 <label>
                   Departure
-                  <input type="date" value={to} onChange={(event) => setTo(event.target.value)} required />
+                  <DatePicker value={to} onChange={(value) => setTo(value)} required minDate={from || today} />
                 </label>
               </div>
               <div className="booking-row">
@@ -259,8 +308,8 @@ export default function HomeClient({
       <section id="rooms" className="section" style={{ background: "var(--surface-muted)" }}>
         <div className="container">
           <div className="section-center">
-            <h2 className="section-title centered">Our Room</h2>
-            <p>Hand-finished spaces with layered textures and uninterrupted coastal views.</p>
+            <h2 className="section-title centered">{roomsContent?.title || "Our Room"}</h2>
+            <p>{roomsContent?.description || "Hand-finished spaces with layered textures and uninterrupted coastal views."}</p>
           </div>
           <div className="room-grid">
             {roomLoading ? (
@@ -294,8 +343,8 @@ export default function HomeClient({
       <section id="gallery" className="section">
         <div className="container">
           <div className="section-center">
-            <h2 className="section-title centered">Gallery</h2>
-            <p>Wander through the moments that define our shoreline story.</p>
+            <h2 className="section-title centered">{galleryContent?.title || "Gallery"}</h2>
+            <p>{galleryContent?.description || "Wander through the moments that define our shoreline story."}</p>
           </div>
           {visibleGalleryImages.length > 0 ? (
             <div className="gallery-grid">
@@ -314,28 +363,33 @@ export default function HomeClient({
       <section id="blog" className="section blog-section">
         <div className="container">
           <div className="section-center" style={{ marginBottom: 32 }}>
-            <h2 className="section-title centered">Blog</h2>
-            <p>Lorem Ipsum available, but the majority have suffered.</p>
+            <h2 className="section-title centered">{blogContent?.title || "Blog"}</h2>
+            <p>{blogContent?.description || "Stories, rituals, and seasonal notes."}</p>
           </div>
-          <div className="blog-grid">
-            {BLOGS.map((blog, index) => (
-              <article key={`${blog.title}-${index}`} className="blog-card">
-                <img src={blog.image} alt={blog.title} />
-                <div className="blog-body">
-                  <h3>{blog.title}</h3>
-                  <span className="tag">{blog.tag}</span>
-                  <p>{blog.desc}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+          {blogs.length > 0 ? (
+            <div className="blog-grid">
+              {blogs.map((blog, index) => (
+                <article key={`${blog.title}-${index}`} className="blog-card">
+                  <img src={blog.imageUrl} alt={blog.title} />
+                  <div className="blog-body">
+                    <h3>{blog.title}</h3>
+                    <span className="tag">{blog.tag}</span>
+                    <p>{blog.description}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">No blog posts available yet.</div>
+          )}
         </div>
       </section>
 
       <section id="contact" className="section">
         <div className="container">
           <div className="section-center" style={{ marginBottom: 32 }}>
-            <h2 className="section-title centered">Contact Us</h2>
+            <h2 className="section-title centered">{contactContent?.title || "Contact Us"}</h2>
+            {contactContent?.description && <p>{contactContent.description}</p>}
           </div>
           <div className="contact-grid">
             <div className="contact-card">

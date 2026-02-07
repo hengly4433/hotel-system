@@ -15,8 +15,10 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
+  alpha,
 } from "@mui/material";
 import { Visibility, VisibilityOff, Email, Lock } from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 function LoginForm() {
   const router = useRouter();
@@ -65,52 +67,56 @@ function LoginForm() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)", // Premium Slate Gradient
+        background: `linear-gradient(135deg, ${tokens.colors.grey[100]} 0%, ${tokens.colors.grey[200]} 100%)`,
         p: 2,
       }}
     >
       <Container maxWidth="xs">
+        {/* Logo Section */}
         <Box sx={{ mb: 4, textAlign: "center" }}>
-             <Box sx={{
-                 width: 64, height: 64, borderRadius: '16px',
-                 background: 'linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%)', // Sky blue gradient
-                 display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                 color: 'white', fontWeight: 800, fontSize: '2rem',
-                 boxShadow: '0 8px 20px rgba(14, 165, 233, 0.3)',
-                 mx: "auto",
-                 mb: 2
-             }}>S</Box>
-            <Typography variant="h4" sx={{ 
-                fontWeight: 800, 
-                background: 'linear-gradient(45deg, #0f172a, #0ea5e9)', // Dark slate to sky blue
-                backgroundClip: 'text',
-                textFillColor: 'transparent',
-                letterSpacing: '-0.5px'
-            }}>
-              Sky High Hotel
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Admin Portal
-            </Typography>
+          <Box 
+            sx={{
+              width: 64, 
+              height: 64, 
+              borderRadius: 3,
+              background: `linear-gradient(135deg, ${tokens.colors.primary.main} 0%, ${tokens.colors.primary.dark} 100%)`,
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              color: 'white', 
+              fontWeight: 800, 
+              fontSize: '2rem',
+              boxShadow: `0 8px 24px ${alpha(tokens.colors.primary.main, 0.3)}`,
+              mx: "auto",
+              mb: 2,
+            }}
+          >
+            S
+          </Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: tokens.colors.grey[900] }}>
+            Sky High Hotel
+          </Typography>
+          <Typography variant="body2" sx={{ color: tokens.colors.grey[500], mt: 0.5, fontWeight: 500, letterSpacing: '1px' }}>
+            ADMIN PORTAL
+          </Typography>
         </Box>
 
+        {/* Login Card */}
         <Card
           sx={{
-            boxShadow: "0 4px 24px rgba(0,0,0,0.08)", // Softer shadow
+            boxShadow: `0 8px 32px ${alpha(tokens.colors.grey[900], 0.08)}`,
             borderRadius: 4,
-            border: "1px solid rgba(255,255,255,0.5)",
-            background: "rgba(255,255,255,0.95)",
-            backdropFilter: "blur(10px)",
+            border: `1px solid ${tokens.colors.grey[200]}`,
           }}
         >
           <CardContent sx={{ p: 4 }}>
-            <Box sx={{ mb: 4, textAlign: "center" }}>
-                <Typography variant="h5" fontWeight="bold">
+            <Box sx={{ mb: 3, textAlign: "center" }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 Welcome Back
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
+              </Typography>
+              <Typography variant="body2" sx={{ color: tokens.colors.grey[500], mt: 0.5 }}>
                 Please enter your details to sign in
-                </Typography>
+              </Typography>
             </Box>
 
             <form onSubmit={onSubmit}>
@@ -127,15 +133,15 @@ function LoginForm() {
                 type="email"
                 required
                 variant="outlined"
-                margin="normal"
+                InputLabelProps={{ shrink: true }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Email color="action" fontSize="small" />
+                      <Email sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
                     </InputAdornment>
                   ),
                 }}
-                sx={{ mb: 2 }}
+                sx={{ mb: 2.5 }}
               />
 
               <TextField
@@ -145,26 +151,22 @@ function LoginForm() {
                 type={showPassword ? "text" : "password"}
                 required
                 variant="outlined"
-                margin="normal"
+                InputLabelProps={{ shrink: true }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Lock color="action" fontSize="small" />
+                      <Lock sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
                     </InputAdornment>
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                        size="small"
-                      >
-                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                        {showPassword ? <VisibilityOff sx={{ fontSize: 20 }} /> : <Visibility sx={{ fontSize: 20 }} />}
                       </IconButton>
                     </InputAdornment>
                   ),
                 }}
-                sx={{ mb: 4 }}
+                sx={{ mb: 3 }}
               />
 
               <Button
@@ -175,23 +177,18 @@ function LoginForm() {
                 disabled={loading}
                 sx={{
                   py: 1.5,
-                  fontSize: "1rem",
                   fontWeight: 700,
                   textTransform: "none",
-                  boxShadow: "0 4px 12px rgba(14, 165, 233, 0.3)", // Sky blue shadow
-                  background: 'linear-gradient(to right, #0ea5e9, #0284c7)',
-                  '&:hover': {
-                      background: 'linear-gradient(to right, #0284c7, #0369a1)',
-                  }
+                  boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.3)}`,
                 }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : "Sign In"}
+                {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : "Sign In"}
               </Button>
 
               <Box sx={{ mt: 3, textAlign: "center" }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: tokens.colors.grey[500] }}>
                   Don&apos;t have an account?{" "}
-                  <Link href="/register" underline="hover" fontWeight="bold">
+                  <Link href="/register" underline="none" sx={{ fontWeight: 600, color: tokens.colors.primary.main }}>
                     Create Account
                   </Link>
                 </Typography>
@@ -200,10 +197,11 @@ function LoginForm() {
           </CardContent>
         </Card>
         
-        <Box sx={{ mt: 3, textAlign: "center" }}>
-             <Typography variant="caption" color="text.secondary">
-                 &copy; {new Date().getFullYear()} Sky High Hotel. All rights reserved.
-             </Typography>
+        {/* Footer */}
+        <Box sx={{ mt: 4, textAlign: "center" }}>
+          <Typography variant="caption" sx={{ color: tokens.colors.grey[400] }}>
+            © {new Date().getFullYear()} Sky High Hotel. All rights reserved.
+          </Typography>
         </Box>
       </Container>
     </Box>
@@ -212,7 +210,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense 
+      fallback={
+        <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: tokens.colors.grey[50] }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

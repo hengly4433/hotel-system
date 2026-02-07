@@ -25,14 +25,19 @@ import {
   Stack,
   Grid,
   Chip,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-  FormLabel,
   TablePagination,
-  Autocomplete
+  Autocomplete,
+  Collapse,
+  alpha,
 } from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from "@mui/icons-material";
+import { 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Add as AddIcon,
+  Close as CloseIcon,
+  Person as PersonIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 const EMPTY_FORM = {
   email: "",
@@ -50,6 +55,7 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const roleMap = useMemo(() => {
     return new Map(roles.map((role) => [role.id, role.name]));
@@ -83,14 +89,14 @@ export default function UsersPage() {
       propertyId: user.propertyId || "",
       roleIds: user.roleIds || []
     });
+    setShowForm(true);
   }
 
   function resetForm() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setShowForm(false);
   }
-
-
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -164,206 +170,364 @@ export default function UsersPage() {
   };
 
   return (
-    <main>
-      <PageHeader title="Users" subtitle="Manage staff accounts" />
+    <Box component="main">
+      <PageHeader 
+        title="Users" 
+        subtitle="Manage staff accounts"
+        action={
+          !showForm ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setShowForm(true)}
+              sx={{
+                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+              }}
+            >
+              New User
+            </Button>
+          ) : null
+        }
+      />
       
       <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+        {/* Form Card */}
+        <Collapse in={showForm}>
+          <Card 
+            sx={{ 
+              borderRadius: 3, 
+              boxShadow: tokens.shadows.card,
+              border: `1px solid ${tokens.colors.grey[200]}`,
+            }}
+          >
             <CardContent sx={{ p: 4 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                    {editingId ? "Edit User" : "Create User"}
-                </Typography>
-                
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-                    <Grid container spacing={3}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                id="user-email"
-                                label="Email"
-                                type="email"
-                                value={form.email}
-                                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                                required
-                                fullWidth
-                            />
-                        </Grid>
-                        
-                        {!editingId ? (
-                             <Grid size={{ xs: 12, md: 6 }}>
-                                <TextField
-                                    id="user-password"
-                                    label="Password"
-                                    type="password"
-                                    value={form.password}
-                                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                                    required
-                                    fullWidth
-                                />
-                             </Grid>
-                        ) : (
-                             <Grid size={{ xs: 12, md: 6 }}>
-                                <TextField
-                                    id="user-new-password"
-                                    label="New Password (Optional)"
-                                    type="password"
-                                    value={form.newPassword}
-                                    onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-                                    fullWidth
-                                    helperText="Leave blank to keep current password"
-                                />
-                             </Grid>
-                        )}
-                        
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                id="user-status"
-                                select
-                                label="Status"
-                                value={form.status}
-                                onChange={(e) => setForm({ ...form, status: e.target.value as "ACTIVE" | "SUSPENDED" })}
-                                fullWidth
-                            >
-                                <MenuItem value="ACTIVE">ACTIVE</MenuItem>
-                                <MenuItem value="SUSPENDED">SUSPENDED</MenuItem>
-                            </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                             <TextField
-                                id="user-property-id"
-                                label="Property ID (Optional)"
-                                value={form.propertyId}
-                                onChange={(e) => setForm({ ...form, propertyId: e.target.value })}
-                                fullWidth
-                            />
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                            <Autocomplete
-                                multiple
-                                id="user-roles"
-                                options={roles}
-                                getOptionLabel={(option) => option.name}
-                                value={roles.filter((r) => form.roleIds.includes(r.id))}
-                                onChange={(event, newValue) => {
-                                    setForm({
-                                        ...form,
-                                        roleIds: newValue.map((r) => r.id)
-                                    });
-                                }}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="Roles"
-                                        placeholder="Select roles..."
-                                    />
-                                )}
-                                renderTags={(value, getTagProps) =>
-                                    value.map((option, index) => (
-                                        <Chip
-                                            variant="outlined"
-                                            label={option.name}
-                                            {...getTagProps({ index })}
-                                            key={option.id}
-                                        />
-                                    ))
-                                }
-                                ListboxProps={{
-                                    style: { maxHeight: 300 }
-                                }}
-                            />
-                        </Grid>
-
-                         <Grid size={{ xs: 12 }}>
-                             <Stack direction="row" spacing={2} justifyContent="flex-end">
-                                <Button 
-                                    type="submit" 
-                                    variant="contained" 
-                                    disabled={loading}
-                                    startIcon={!editingId && !loading && <AddIcon />}
-                                >
-                                    {loading ? "Saving..." : editingId ? "Update" : "Create"}
-                                </Button>
-                                {editingId && (
-                                    <Button variant="outlined" onClick={resetForm}>
-                                        Cancel
-                                    </Button>
-                                )}
-                            </Stack>
-                        </Grid>
-                    </Grid>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 4,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 3,
+                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <PersonIcon sx={{ color: tokens.colors.primary.main }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight="bold">
+                      {editingId ? "Edit User" : "Create New User"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {editingId ? "Update user account details" : "Add a new staff account"}
+                    </Typography>
+                  </Box>
                 </Box>
-            </CardContent>
-        </Card>
+                <IconButton 
+                  onClick={resetForm} 
+                  size="small"
+                  sx={{
+                    bgcolor: tokens.colors.grey[100],
+                    '&:hover': {
+                      bgcolor: tokens.colors.grey[200],
+                    }
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <TableContainer component={Paper} elevation={0}>
-                <Table>
-                <TableHead sx={{ bgcolor: "#f8fafc" }}>
-                    <TableRow>
-                     <TableCell sx={{ fontWeight: "bold", width: 60 }}>No</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Email</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Roles</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold" }}>Actions</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {users
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((user, index) => (
-                    <TableRow key={user.id} hover>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
+              <Box component="form" onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      id="user-email"
+                      label="Email"
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      required
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      placeholder="user@example.com"
+                    />
+                  </Grid>
+                  
+                  {!editingId ? (
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField
+                        id="user-password"
+                        label="Password"
+                        type="password"
+                        value={form.password}
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        required
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                  ) : (
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <TextField
+                        id="user-new-password"
+                        label="New Password (Optional)"
+                        type="password"
+                        value={form.newPassword}
+                        onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+                        fullWidth
+                        helperText="Leave blank to keep current password"
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                  )}
+                  
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      id="user-status"
+                      select
+                      label="Status"
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value as "ACTIVE" | "SUSPENDED" })}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                    >
+                      <MenuItem value="ACTIVE">ACTIVE</MenuItem>
+                      <MenuItem value="SUSPENDED">SUSPENDED</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      id="user-property-id"
+                      label="Property ID (Optional)"
+                      value={form.propertyId}
+                      onChange={(e) => setForm({ ...form, propertyId: e.target.value })}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12 }}>
+                    <Autocomplete
+                      multiple
+                      id="user-roles"
+                      options={roles}
+                      getOptionLabel={(option) => option.name}
+                      value={roles.filter((r) => form.roleIds.includes(r.id))}
+                      onChange={(event, newValue) => {
+                        setForm({
+                          ...form,
+                          roleIds: newValue.map((r) => r.id)
+                        });
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Roles"
+                          placeholder="Select roles..."
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      )}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                          <Chip
+                            variant="outlined"
+                            label={option.name}
+                            {...getTagProps({ index })}
+                            key={option.id}
+                          />
+                        ))
+                      }
+                      ListboxProps={{
+                        style: { maxHeight: 300 }
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12 }}>
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                      <Button 
+                        onClick={resetForm}
+                        variant="outlined"
+                        sx={{ px: 3 }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        variant="contained" 
+                        disabled={loading}
+                        sx={{ 
+                          px: 4,
+                          boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+                        }}
+                      >
+                        {loading ? "Saving..." : editingId ? "Update User" : "Create User"}
+                      </Button>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Box>
+            </CardContent>
+          </Card>
+        </Collapse>
+
+        {/* Table Card */}
+        <Card 
+          sx={{ 
+            borderRadius: 3, 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Roles</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <PersonIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No users found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          Add your first staff account
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => setShowForm(true)}
+                          size="small"
+                        >
+                          Add User
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((user, index) => (
+                    <TableRow 
+                      key={user.id} 
+                      hover
+                      sx={{
+                        '&:hover': {
+                          bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {page * rowsPerPage + index + 1}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{user.email}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={user.status} 
+                          size="small" 
+                          sx={{
+                            bgcolor: user.status === "ACTIVE" 
+                              ? alpha(tokens.colors.success.main, 0.12)
+                              : alpha(tokens.colors.error.main, 0.12),
+                            color: user.status === "ACTIVE"
+                              ? tokens.colors.success.dark
+                              : tokens.colors.error.dark,
+                            fontWeight: 600,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                          {(user.roleIds || []).map((roleId) => (
                             <Chip 
-                                label={user.status} 
-                                size="small" 
-                                color={user.status === "ACTIVE" ? "success" : "error"} 
+                              key={roleId} 
+                              label={roleMap.get(roleId) || roleId} 
+                              size="small"
+                              sx={{
+                                bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                color: tokens.colors.primary.main,
+                                fontWeight: 600,
+                              }}
                             />
-                        </TableCell>
-                        <TableCell>
-                            {(user.roleIds || []).map((roleId) => (
-                                <Chip 
-                                    key={roleId} 
-                                    label={roleMap.get(roleId) || roleId} 
-                                    size="small" 
-                                    sx={{ mr: 0.5, mb: 0.5 }} 
-                                />
-                            ))}
-                        </TableCell>
-                        <TableCell align="right">
-                        <IconButton size="small" onClick={() => startEdit(user)} color="primary">
-                            <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(user.id)} color="error">
-                            <DeleteIcon />
-                        </IconButton>
-                        </TableCell>
+                          ))}
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => startEdit(user)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                              color: tokens.colors.primary.main,
+                              '&:hover': {
+                                bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                              }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDelete(user.id)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.error.main, 0.08),
+                              color: tokens.colors.error.main,
+                              '&:hover': {
+                                bgcolor: alpha(tokens.colors.error.main, 0.15),
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      </TableCell>
                     </TableRow>
-                    ))}
-                    {users.length === 0 && (
-                     <TableRow>
-                        <TableCell colSpan={5} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                            No users found
-                        </TableCell>
-                     </TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </TableContainer>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {users.length > 0 && (
             <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={users.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={users.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
             />
+          )}
         </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

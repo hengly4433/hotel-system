@@ -21,9 +21,14 @@ import {
   Paper,
   Alert,
   Typography,
-  Chip
+  Chip,
+  Autocomplete,
+  alpha
 } from "@mui/material";
+import { tokens } from "@/lib/theme";
 import { Search as SearchIcon } from "@mui/icons-material";
+
+type Property = { id: string; name: string };
 
 type AvailabilityDate = {
   date: string;
@@ -43,11 +48,18 @@ const today = new Date().toISOString().slice(0, 10);
 
 export default function RoomAvailabilityPage() {
   const [propertyId, setPropertyId] = useState("");
+  const [properties, setProperties] = useState<Property[]>([]);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState("");
   const [availability, setAvailability] = useState<RoomTypeAvailability[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    apiJson<Property[]>("properties")
+      .then(setProperties)
+      .catch((err) => setError(getErrorMessage(err)));
+  }, []);
 
   const dateColumns = useMemo(() => {
     if (!availability.length) return [];
@@ -94,13 +106,17 @@ export default function RoomAvailabilityPage() {
                     </Typography>
                     <Grid container spacing={3} alignItems="flex-end">
                       <Grid size={{ xs: 12, md: 4 }}>
-                        <TextField
-                          id="avail-property-id"
-                          label="Property ID"
-                          value={propertyId}
-                          onChange={(e) => setPropertyId(e.target.value)}
-                          fullWidth
-                          variant="outlined"
+                        <Autocomplete
+                          id="avail-property-autocomplete"
+                          options={properties}
+                          getOptionLabel={(opt) => opt.name}
+                          isOptionEqualToValue={(a, b) => a.id === b.id}
+                          value={properties.find(p => p.id === propertyId) || null}
+                          onChange={(_, val) => setPropertyId(val?.id || "")}
+                          renderInput={(params) => (
+                            <TextField {...params} label="Property" placeholder="Search property..." />
+                          )}
+                          noOptionsText="No properties found"
                         />
                       </Grid>
                       <Grid size={{ xs: 12, md: 3 }}>
@@ -142,49 +158,172 @@ export default function RoomAvailabilityPage() {
             </CardContent>
          </Card>
 
-         <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <TableContainer component={Paper} elevation={0}>
-                 <Box sx={{ p: 3, borderBottom: '1px solid #f0f0f0' }}>
-                     <Typography variant="h6" fontWeight="bold">Availability Matrix</Typography>
-                 </Box>
+         <Card sx={{ borderRadius: 3, boxShadow: tokens.shadows.card, border: `1px solid ${tokens.colors.grey[200]}`, overflow: 'hidden' }}>
+            <Box sx={{ p: 3, borderBottom: `1px solid ${tokens.colors.grey[200]}`, bgcolor: 'white' }}>
+              <Typography variant="h6" fontWeight="bold">Availability Matrix</Typography>
+            </Box>
+            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 0 }}>
                 <Table>
-                  <TableHead sx={{ bgcolor: "#f8fafc" }}>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: "bold" }}>Room Type</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>Total Rooms</TableCell>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: alpha(tokens.colors.primary.main, 0.04) }}>
+                      <TableCell 
+                        sx={{ 
+                          fontWeight: 700, 
+                          color: tokens.colors.grey[700],
+                          textTransform: 'uppercase',
+                          fontSize: '0.75rem',
+                          letterSpacing: '0.5px',
+                          width: 60,
+                          textAlign: 'center'
+                        }}
+                      >
+                        No
+                      </TableCell>
+                      <TableCell 
+                        sx={{ 
+                          fontWeight: 700, 
+                          color: tokens.colors.grey[700],
+                          textTransform: 'uppercase',
+                          fontSize: '0.75rem',
+                          letterSpacing: '0.5px',
+                          minWidth: 180
+                        }}
+                      >
+                        Room Type
+                      </TableCell>
+                      <TableCell 
+                        sx={{ 
+                          fontWeight: 700, 
+                          color: tokens.colors.grey[700],
+                          textTransform: 'uppercase',
+                          fontSize: '0.75rem',
+                          letterSpacing: '0.5px',
+                          textAlign: 'center',
+                          width: 100
+                        }}
+                      >
+                        Total
+                      </TableCell>
                       {dateColumns.map((date) => (
-                        <TableCell key={date} sx={{ fontWeight: "bold", whiteSpace: 'nowrap' }}>{date}</TableCell>
+                        <TableCell 
+                          key={date} 
+                          sx={{ 
+                            fontWeight: 700, 
+                            color: tokens.colors.grey[700],
+                            textTransform: 'uppercase',
+                            fontSize: '0.7rem',
+                            letterSpacing: '0.3px',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'center',
+                            minWidth: 90
+                          }}
+                        >
+                          {date}
+                        </TableCell>
                       ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {availability.map((roomType) => (
-                      <TableRow key={roomType.roomTypeId} hover>
-                        <TableCell>
-                          <Typography variant="subtitle2" fontWeight={600}>{roomType.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">{roomType.code}</Typography>
+                    {availability.map((roomType, index) => (
+                      <TableRow 
+                        key={roomType.roomTypeId} 
+                        sx={{ 
+                          '&:hover': { bgcolor: alpha(tokens.colors.primary.main, 0.02) },
+                          '&:nth-of-type(even)': { bgcolor: tokens.colors.grey[50] },
+                          transition: 'background-color 0.15s ease'
+                        }}
+                      >
+                        <TableCell sx={{ textAlign: 'center', color: tokens.colors.grey[500], fontWeight: 500 }}>
+                          {index + 1}
                         </TableCell>
-                        <TableCell>{roomType.totalRooms}</TableCell>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="subtitle2" fontWeight={600} color={tokens.colors.grey[800]}>
+                              {roomType.name}
+                            </Typography>
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: tokens.colors.grey[500],
+                                bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                px: 1,
+                                py: 0.25,
+                                borderRadius: 1,
+                                fontSize: '0.7rem',
+                                fontWeight: 500
+                              }}
+                            >
+                              {roomType.code}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Box
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 36,
+                              height: 36,
+                              borderRadius: 2,
+                              bgcolor: alpha(tokens.colors.primary.main, 0.1),
+                              color: tokens.colors.primary.main,
+                              fontWeight: 700,
+                              fontSize: '0.95rem'
+                            }}
+                          >
+                            {roomType.totalRooms}
+                          </Box>
+                        </TableCell>
                         {roomType.dates.map((entry) => {
-                             const isLow = entry.available === 0;
-                             const isPartial = entry.available < roomType.totalRooms;
-                             return (
-                              <TableCell key={entry.date}>
-                                <Chip 
-                                    label={`${entry.available} / ${roomType.totalRooms}`}
-                                    size="small"
-                                    color={isLow ? "error" : isPartial ? "warning" : "success"}
-                                    variant={isLow ? "filled" : "outlined"}
-                                />
-                              </TableCell>
-                             );
+                          const isLow = entry.available === 0;
+                          const isPartial = entry.available > 0 && entry.available < roomType.totalRooms;
+                          const isFull = entry.available === roomType.totalRooms;
+                          return (
+                            <TableCell key={entry.date} sx={{ textAlign: 'center', p: 1 }}>
+                              <Chip 
+                                label={`${entry.available}/${roomType.totalRooms}`}
+                                size="small"
+                                sx={{
+                                  fontWeight: 600,
+                                  fontSize: '0.75rem',
+                                  minWidth: 56,
+                                  ...(isLow && {
+                                    bgcolor: alpha(tokens.colors.error.main, 0.12),
+                                    color: tokens.colors.error.main,
+                                    border: `1px solid ${alpha(tokens.colors.error.main, 0.3)}`
+                                  }),
+                                  ...(isPartial && {
+                                    bgcolor: alpha(tokens.colors.warning.main, 0.12),
+                                    color: tokens.colors.warning.dark,
+                                    border: `1px solid ${alpha(tokens.colors.warning.main, 0.3)}`
+                                  }),
+                                  ...(isFull && {
+                                    bgcolor: alpha(tokens.colors.success.main, 0.12),
+                                    color: tokens.colors.success.main,
+                                    border: `1px solid ${alpha(tokens.colors.success.main, 0.3)}`
+                                  })
+                                }}
+                              />
+                            </TableCell>
+                          );
                         })}
                       </TableRow>
                     ))}
                     {availability.length === 0 && !loading && (
                       <TableRow>
-                        <TableCell colSpan={2 + dateColumns.length} align="center" sx={{ py: 6, color: "text.secondary" }}>
-                          {propertyId && from && to ? "No availability data found" : "Enter filters to check availability"}
+                        <TableCell 
+                          colSpan={3 + dateColumns.length} 
+                          align="center" 
+                          sx={{ 
+                            py: 8, 
+                            color: tokens.colors.grey[500],
+                            bgcolor: tokens.colors.grey[50]
+                          }}
+                        >
+                          <Typography variant="body2">
+                            {propertyId && from && to ? "No availability data found" : "Select a property and date range to check availability"}
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     )}

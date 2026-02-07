@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { setCustomerToken } from "@/lib/customerAuth";
 
@@ -11,7 +11,7 @@ type RegisterResponse = {
   expiresIn: number;
 };
 
-export default function SignUpPage() {
+function SignUpContent() {
   const params = useSearchParams();
   const router = useRouter();
   const redirect = params.get("redirect") || "/";
@@ -38,13 +38,13 @@ export default function SignUpPage() {
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || "Unable to sign up");
+        throw new Error(text || "Unable to create account");
       }
       const data = (await res.json()) as RegisterResponse;
       setCustomerToken(data.accessToken);
       router.push(redirect);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to sign up");
+      setError(err instanceof Error ? err.message : "Unable to create account");
     } finally {
       setLoading(false);
     }
@@ -52,107 +52,121 @@ export default function SignUpPage() {
 
   return (
     <main>
-      <section className="section auth-section">
-        <div className="container auth-shell">
-          <div className="auth-panel">
-            <span className="auth-badge">New here?</span>
-            <h1>Create your Sky High Hotel account.</h1>
-            <p>Register once to unlock faster bookings, manage your reservations, and receive stay updates.</p>
-            <div className="auth-highlights">
-              <div className="auth-highlight">
-                <span className="auth-highlight-title">One profile</span>
-                <span className="auth-highlight-text">Keep guest details ready for every stay.</span>
-              </div>
-              <div className="auth-highlight">
-                <span className="auth-highlight-title">Clear timeline</span>
-                <span className="auth-highlight-text">View upcoming stays and saved preferences.</span>
-              </div>
-            </div>
-          </div>
-          <div className="card auth-card">
-            <div className="auth-card-header">
-              <span className="auth-eyebrow">Create account</span>
-              <h2>Get started in minutes</h2>
-              <p>Use Google for a quick start or complete the form below.</p>
-            </div>
-            {error && <div className="auth-error">{error}</div>}
-            {googleEnabled && (
-              <div className="auth-social">
-                <Link className="btn btn-google" href={googleAuthHref}>
-                  Continue with Google
-                </Link>
-              </div>
-            )}
-            {googleEnabled && (
-              <div className="auth-divider">
-                <span />
-                <span>or sign up with email</span>
-                <span />
-              </div>
-            )}
-            <form className="auth-form" onSubmit={handleSubmit}>
-              <div className="two-col">
-                <label className="grid" style={{ gap: 6 }}>
-                  <span>First name</span>
-                  <input
-                    className="input"
-                    value={firstName}
-                    onChange={(event) => setFirstName(event.target.value)}
-                    required
-                  />
-                </label>
-                <label className="grid" style={{ gap: 6 }}>
-                  <span>Last name</span>
-                  <input
-                    className="input"
-                    value={lastName}
-                    onChange={(event) => setLastName(event.target.value)}
-                    required
-                  />
-                </label>
-              </div>
-              <label className="grid" style={{ gap: 6 }}>
-                <span>Email</span>
-                <input
-                  className="input"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                />
-              </label>
-              <label className="grid" style={{ gap: 6 }}>
-                <span>Phone (optional)</span>
-                <input
-                  className="input"
-                  type="tel"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                />
-              </label>
-              <label className="grid" style={{ gap: 6 }}>
-                <span>Password</span>
-                <input
-                  className="input"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
-              </label>
-              <button className="btn btn-primary" type="submit" disabled={loading}>
-                {loading ? "Creating account..." : "Create account"}
-              </button>
-            </form>
-            <p style={{ marginTop: 16, marginBottom: 0 }}>
-              Already have an account?{" "}
-              <Link className="link-accent" href={`/auth/sign-in?redirect=${encodeURIComponent(redirect)}`}>
-                Sign in
-              </Link>
-            </p>
-          </div>
+      <div className="auth-wrapper">
+        <div className="auth-brand">
+          <Link href="/" className="auth-brand-logo">Sky High Hotel</Link>
+          <span className="auth-brand-tagline">Create your account</span>
         </div>
-      </section>
+
+        <div className="auth-card-standalone">
+          <h1>Get started</h1>
+          <p className="auth-subtitle">
+            Join us to unlock faster bookings and manage your reservations effortlessly.
+          </p>
+
+          {error && <div className="auth-error-modern">{error}</div>}
+
+          {googleEnabled && (
+            <>
+              <Link className="auth-btn auth-btn-google" href={googleAuthHref}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Continue with Google
+              </Link>
+              <div className="auth-divider-modern">or sign up with email</div>
+            </>
+          )}
+
+          <form className="auth-form-modern" onSubmit={handleSubmit}>
+            <div className="auth-row">
+              <div className="auth-field">
+                <label htmlFor="firstName">First name</label>
+                <input
+                  id="firstName"
+                  type="text"
+                  placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="auth-field">
+                <label htmlFor="lastName">Last name</label>
+                <input
+                  id="lastName"
+                  type="text"
+                  placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="auth-field">
+              <label htmlFor="email">Email address</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="auth-field">
+              <label htmlFor="phone">Phone (optional)</label>
+              <input
+                id="phone"
+                type="tel"
+                placeholder="+1 (555) 123-4567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+
+            <div className="auth-field">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button className="auth-btn auth-btn-primary" type="submit" disabled={loading}>
+              {loading ? "Creating account..." : "Create account"}
+            </button>
+          </form>
+
+          <p className="auth-footer-text">
+            Already have an account?{" "}
+            <Link href={`/auth/sign-in?redirect=${encodeURIComponent(redirect)}`}>
+              Sign in
+            </Link>
+          </p>
+        </div>
+
+        <Link href="/" className="auth-back-link">
+          ← Back to home
+        </Link>
+      </div>
     </main>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className="auth-wrapper"><div className="auth-card-standalone"><p>Loading...</p></div></div>}>
+      <SignUpContent />
+    </Suspense>
   );
 }

@@ -21,19 +21,29 @@ import {
   TableRow,
   Paper,
   Alert,
-  Typography
+  Typography,
+  Autocomplete
 } from "@mui/material";
 import { Search as SearchIcon } from "@mui/icons-material";
+
+type Property = { id: string; name: string };
 
 const today = new Date().toISOString().slice(0, 10);
 
 export default function RoomBoardPage() {
   const [propertyId, setPropertyId] = useState("");
+  const [properties, setProperties] = useState<Property[]>([]);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState("");
   const [board, setBoard] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    apiJson<Property[]>("properties")
+      .then(setProperties)
+      .catch((err) => setError(getErrorMessage(err)));
+  }, []);
 
   const loadBoard = useCallback(async () => {
     setLoading(true);
@@ -75,13 +85,17 @@ export default function RoomBoardPage() {
                 </Typography>
                 <Grid container spacing={3} alignItems="flex-end">
                   <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      id="board-property-id"
-                      label="Property ID"
-                      value={propertyId}
-                      onChange={(e) => setPropertyId(e.target.value)}
-                      fullWidth
-                      variant="outlined"
+                    <Autocomplete
+                      id="board-property-autocomplete"
+                      options={properties}
+                      getOptionLabel={(opt) => opt.name}
+                      isOptionEqualToValue={(a, b) => a.id === b.id}
+                      value={properties.find(p => p.id === propertyId) || null}
+                      onChange={(_, val) => setPropertyId(val?.id || "")}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Property" placeholder="Search property..." />
+                      )}
+                      noOptionsText="No properties found"
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 3 }}>

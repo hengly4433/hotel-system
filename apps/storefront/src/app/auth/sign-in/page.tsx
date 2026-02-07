@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { setCustomerToken } from "@/lib/customerAuth";
 
@@ -11,7 +11,7 @@ type LoginResponse = {
   expiresIn: number;
 };
 
-export default function SignInPage() {
+function SignInContent() {
   const params = useSearchParams();
   const router = useRouter();
   const redirect = params.get("redirect") || "/";
@@ -49,78 +49,85 @@ export default function SignInPage() {
 
   return (
     <main>
-      <section className="section auth-section">
-        <div className="container auth-shell">
-          <div className="auth-panel">
-            <span className="auth-badge">Customer access</span>
-            <h1>Welcome back to Sky High Hotel.</h1>
-            <p>Sign in to finish your reservation, manage your stays, and keep all your travel details in one place.</p>
-            <div className="auth-highlights">
-              <div className="auth-highlight">
-                <span className="auth-highlight-title">Fast checkout</span>
-                <span className="auth-highlight-text">Save guest details and resume bookings instantly.</span>
-              </div>
-              <div className="auth-highlight">
-                <span className="auth-highlight-title">Stay updates</span>
-                <span className="auth-highlight-text">Track reservation status and see what&apos;s next.</span>
-              </div>
-            </div>
-          </div>
-          <div className="card auth-card">
-            <div className="auth-card-header">
-              <span className="auth-eyebrow">Sign in</span>
-              <h2>Continue your booking</h2>
-              <p>Use your email or Google account to get started.</p>
-            </div>
-            {error && <div className="auth-error">{error}</div>}
-            {googleEnabled && (
-              <div className="auth-social">
-                <Link className="btn btn-google" href={googleAuthHref}>
-                  Continue with Google
-                </Link>
-              </div>
-            )}
-            {googleEnabled && (
-              <div className="auth-divider">
-                <span />
-                <span>or sign in with email</span>
-                <span />
-              </div>
-            )}
-            <form className="auth-form" onSubmit={handleSubmit}>
-              <label className="grid" style={{ gap: 6 }}>
-                <span>Email</span>
-                <input
-                  className="input"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                />
-              </label>
-              <label className="grid" style={{ gap: 6 }}>
-                <span>Password</span>
-                <input
-                  className="input"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
-              </label>
-              <button className="btn btn-primary" type="submit" disabled={loading}>
-                {loading ? "Signing in..." : "Sign in"}
-              </button>
-            </form>
-            <p style={{ marginTop: 16, marginBottom: 0 }}>
-              New here?{" "}
-              <Link className="link-accent" href={`/auth/sign-up?redirect=${encodeURIComponent(redirect)}`}>
-                Create an account
-              </Link>
-            </p>
-          </div>
+      <div className="auth-wrapper">
+        <div className="auth-brand">
+          <Link href="/" className="auth-brand-logo">Sky High Hotel</Link>
+          <span className="auth-brand-tagline">Welcome back</span>
         </div>
-      </section>
+
+        <div className="auth-card-standalone">
+          <h1>Sign in</h1>
+          <p className="auth-subtitle">
+            Continue to your account to manage reservations and bookings.
+          </p>
+
+          {error && <div className="auth-error-modern">{error}</div>}
+
+          {googleEnabled && (
+            <>
+              <Link className="auth-btn auth-btn-google" href={googleAuthHref}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Continue with Google
+              </Link>
+              <div className="auth-divider-modern">or sign in with email</div>
+            </>
+          )}
+
+          <form className="auth-form-modern" onSubmit={handleSubmit}>
+            <div className="auth-field">
+              <label htmlFor="email">Email address</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="auth-field">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button className="auth-btn auth-btn-primary" type="submit" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+
+          <p className="auth-footer-text">
+            Don&apos;t have an account?{" "}
+            <Link href={`/auth/sign-up?redirect=${encodeURIComponent(redirect)}`}>
+              Create one
+            </Link>
+          </p>
+        </div>
+
+        <Link href="/" className="auth-back-link">
+          ← Back to home
+        </Link>
+      </div>
     </main>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="auth-wrapper"><div className="auth-card-standalone"><p>Loading...</p></div></div>}>
+      <SignInContent />
+    </Suspense>
   );
 }

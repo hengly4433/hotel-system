@@ -1,0 +1,11 @@
+CREATE TABLE page_contents (
+    id UUID PRIMARY KEY,
+    section_key VARCHAR(255) NOT NULL UNIQUE,
+    title VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    image_url VARCHAR(255),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);

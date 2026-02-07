@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Reservation = {
@@ -26,7 +26,7 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
   return (await res.json()) as T;
 }
 
-export default function ManageBookingPage() {
+function ManageBookingContent() {
   const params = useSearchParams();
   const [code, setCode] = useState("");
   const [email, setEmail] = useState("");
@@ -123,5 +123,13 @@ export default function ManageBookingPage() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+export default function ManageBookingPage() {
+  return (
+    <Suspense fallback={<div className="empty-state">Loading...</div>}>
+      <ManageBookingContent />
+    </Suspense>
   );
 }

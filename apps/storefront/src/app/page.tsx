@@ -25,6 +25,26 @@ type RoomType = {
   }>;
 };
 
+type Blog = {
+  id: string;
+  title: string;
+  tag: string;
+  description: string;
+  imageUrl: string;
+  content: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+type PageContent = {
+  id: string;
+  sectionKey: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  isActive: boolean;
+};
+
 export const dynamic = "force-dynamic";
 
 function collectGalleryImages(roomTypes: RoomType[]) {
@@ -46,10 +66,21 @@ export default async function HomePage() {
   let properties: PropertyOption[] = [];
   let roomTypes: RoomType[] = [];
   let galleryImages: string[] = [];
+  let blogs: Blog[] = [];
+  let pageContents: PageContent[] = [];
   let hasPropertyError = false;
 
   try {
-    properties = await publicApi<PropertyOption[]>("/public/properties");
+    const [propertiesData, blogsData, pageContentsData] = await Promise.all([
+      publicApi<PropertyOption[]>("/public/properties"),
+      publicApi<Blog[]>("/public/blogs").catch(() => []),
+      publicApi<PageContent[]>("/public/page-contents").catch(() => [])
+    ]);
+    
+    properties = propertiesData;
+    blogs = blogsData;
+    pageContents = pageContentsData;
+
     if (properties.length > 0) {
       roomTypes = await publicApi<RoomType[]>(`/public/room-types?propertyId=${properties[0].id}`);
       galleryImages = collectGalleryImages(roomTypes);
@@ -63,6 +94,8 @@ export default async function HomePage() {
       properties={properties}
       roomTypes={roomTypes}
       galleryImages={galleryImages}
+      blogs={blogs}
+      pageContents={pageContents}
       hasPropertyError={hasPropertyError}
     />
   );

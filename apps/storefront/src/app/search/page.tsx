@@ -52,12 +52,13 @@ function primaryImage(room: RoomType) {
 
 export const dynamic = "force-dynamic";
 
-export default async function SearchPage({ searchParams }: { searchParams: SearchParams }) {
-  const propertyId = searchParams.propertyId || "";
-  const from = searchParams.from || "";
-  const to = searchParams.to || "";
-  const adults = searchParams.adults || "1";
-  const children = searchParams.children || "0";
+export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const propertyId = params.propertyId || "";
+  const from = params.from || "";
+  const to = params.to || "";
+  const adults = params.adults || "1";
+  const children = params.children || "0";
 
   if (!propertyId || !from || !to) {
     return (

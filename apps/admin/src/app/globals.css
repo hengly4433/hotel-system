@@ -1,16 +1,100 @@
+/* Modern CSS with optimized animations */
+
 :root {
   color-scheme: light;
+  
+  /* Color tokens */
+  --color-primary: #0ea5e9;
+  --color-primary-light: #38bdf8;
+  --color-primary-dark: #0284c7;
+  --color-secondary: #0f172a;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  
+  /* Grey scale */
+  --color-grey-50: #f8fafc;
+  --color-grey-100: #f1f5f9;
+  --color-grey-200: #e2e8f0;
+  --color-grey-300: #cbd5e1;
+  --color-grey-400: #94a3b8;
+  --color-grey-500: #64748b;
+  --color-grey-600: #475569;
+  --color-grey-700: #334155;
+  --color-grey-800: #1e293b;
+  --color-grey-900: #0f172a;
+  
+  /* Shadows - simplified */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 16px -2px rgba(0, 0, 0, 0.1);
+  
+  /* Faster transitions */
+  --transition-fast: 100ms ease-out;
+  --transition-base: 150ms ease-out;
+  
+  /* Border radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* Remove focus outline globally - MUI handles focus states */
+/* Aggressive reset for Brave/Chromium browsers */
+*:focus,
+*:focus-within {
+  outline: none !important;
+  outline-color: transparent !important;
+  outline-style: none !important;
+  outline-width: 0 !important;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+}
+
+*:focus-visible {
+  outline: none !important;
+  outline-color: transparent !important;
+}
+
+button:focus,
+a:focus,
+[role="button"]:focus,
+[role="menuitem"]:focus,
+.MuiListItemButton-root:focus,
+.MuiButtonBase-root:focus,
+.MuiListItemButton-root:focus-visible,
+.MuiButtonBase-root:focus-visible {
+  outline: none !important;
+  outline-color: transparent !important;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  border-color: inherit !important;
+}
+
+/* Remove Safari/iOS/Brave tap highlight */
+* {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-focus-ring-color: transparent !important;
+}
+
+html {
+  scroll-behavior: auto; /* Disable smooth scroll for performance */
+}
+
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #111827;
-  background: #f8fafc;
+  font-family: "Inter", "Urbanist", "Helvetica", "Arial", sans-serif;
+  color: var(--color-grey-900);
+  background: var(--color-grey-50);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: rgba(14, 165, 233, 0.2);
 }
 
 a {
@@ -22,9 +106,25 @@ main {
   min-height: 100vh;
 }
 
+/* Simple scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-grey-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-grey-300);
+  border-radius: 4px;
+}
+
+/* App shell layout */
 .app-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 260px 1fr;
   min-height: 100vh;
 }
 
@@ -35,7 +135,7 @@ main {
 }
 
 .app-shell__content {
-  background: #f8fafc;
+  background: var(--color-grey-50);
   padding: 24px;
 }
 
@@ -44,6 +144,62 @@ main {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  border-bottom: 1px solid var(--color-grey-200);
+}
+
+/* Simple, fast animations - reduced duration */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Optimized animation classes - shorter durations */
+.animate-fadeIn {
+  animation: fadeIn 0.15s ease-out;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.2s ease-out;
+}
+
+.animate-fadeInDown {
+  animation: fadeInDown 0.2s ease-out;
+}
+
+/* Minimal stagger - only first few items */
+.stagger-item {
+  animation: fadeInUp 0.2s ease-out backwards;
+}
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 30ms; }
+.stagger-item:nth-child(3) { animation-delay: 60ms; }
+.stagger-item:nth-child(4) { animation-delay: 90ms; }
+
+/* Simple hover effects - no heavy transforms */
+.hover-lift {
+  transition: box-shadow 0.15s ease-out;
+}
+
+.hover-lift:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

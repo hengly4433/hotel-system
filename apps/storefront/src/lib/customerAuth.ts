@@ -15,7 +15,7 @@ export function clearCustomerToken() {
   window.localStorage.removeItem(TOKEN_KEY);
 }
 
-export function buildAuthHeaders() {
+export function buildAuthHeaders(): Record<string, string> {
   const token = getCustomerToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
