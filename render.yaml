@@ -1,14 +1,14 @@
-services:
+databases:
   # --------------------------------------------------------------------------------
   # DATABASE (PostgreSQL)
   # --------------------------------------------------------------------------------
-  - type: psql
-    name: hotel-db
-    region: singapore # Change to your preferred region
-    plan: free # or starter
+  - name: hotel-db
     databaseName: hotel_system
     user: hotel_user
+    plan: free # or starter
+    region: singapore # Change to your preferred region
 
+services:
   # --------------------------------------------------------------------------------
   # BACKEND (Spring Boot)
   # --------------------------------------------------------------------------------
