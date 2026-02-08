@@ -13,6 +13,7 @@ import {
   Box,
   Collapse,
   Skeleton,
+  alpha,
 } from "@mui/material";
 import {
   Dashboard as DashboardIcon,
@@ -20,20 +21,19 @@ import {
   ReceiptLong as ReceiptIcon,
   People as PeopleIcon,
   Settings as SettingsIcon,
-  ExpandLess,
   ExpandMore,
   Circle as CircleIcon,
   Assessment as AssessmentIcon,
 } from "@mui/icons-material";
 import { apiJson as api } from "@/lib/api/client";
 import type { NavigationMenu } from "@/lib/types/rbac";
+import { tokens } from "@/lib/theme";
 
 const DRAWER_WIDTH = 260;
 
-// Map menu keys to icons
 const ICONS: Record<string, React.ReactNode> = {
   dashboard: <DashboardIcon />,
-  reservations: <HotelIcon />, // closest to generic hotel
+  reservations: <HotelIcon />,
   rooms: <HotelIcon />,
   finance: <ReceiptIcon />,
   guests: <PeopleIcon />,
@@ -67,7 +67,8 @@ export default function SideNav() {
     setOpenSub((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // No early return for loading to keep Sidebar visible
+  const activeColor = tokens.colors.primary.main;
+  const activeBg = alpha(tokens.colors.primary.main, 0.08);
 
   return (
     <Drawer
@@ -80,167 +81,177 @@ export default function SideNav() {
           boxSizing: "border-box",
           border: "none",
           backgroundColor: "#fff",
-          boxShadow: "4px 0 24px rgba(0,0,0,0.02)", // Subtle depth sidebar
+          boxShadow: "2px 0 8px rgba(0,0,0,0.04)",
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
-      <Box sx={{ p: 3, pb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-         <Box sx={{
-             width: 40, height: 40, borderRadius: '12px',
-             background: 'linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%)', // Sky blue gradient
-             display: 'flex', alignItems: 'center', justifyContent: 'center', 
-             color: 'white', fontWeight: 800, fontSize: '1.2rem',
-             boxShadow: '0 4px 12px rgba(14, 165, 233, 0.4)'
-         }}>S</Box>
-        <Typography variant="h6" sx={{ 
-            fontWeight: 800, 
-            background: 'linear-gradient(45deg, #0f172a, #0ea5e9)', // Dark slate to sky blue
-            backgroundClip: 'text',
-            textFillColor: 'transparent',
-            letterSpacing: '-0.5px'
+      {/* Logo Section - Fixed Header */}
+      <Box 
+        sx={{ 
+          p: 3, 
+          pb: 4, 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 2,
+          borderBottom: `1px solid ${tokens.colors.grey[100]}`,
+          flexShrink: 0,
+        }}
+      >
+        <Box sx={{
+          width: 44, 
+          height: 44, 
+          borderRadius: 3,
+          background: `linear-gradient(135deg, ${tokens.colors.primary.main} 0%, ${tokens.colors.primary.dark} 100%)`,
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          color: 'white', 
+          fontWeight: 800, 
+          fontSize: '1.3rem',
         }}>
-          Sky High Hotel
-        </Typography>
+          S
+        </Box>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: tokens.colors.grey[900], letterSpacing: '-0.5px' }}>
+            Sky High
+          </Typography>
+          <Typography variant="caption" sx={{ color: tokens.colors.grey[500], fontWeight: 500, letterSpacing: '0.5px' }}>
+            HOTEL ADMIN
+          </Typography>
+        </Box>
       </Box>
 
-       <List component="nav" sx={{ px: 2 }}>
+      {/* Scrollable Menu Container */}
+      <Box 
+        sx={{ 
+          flex: 1, 
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: tokens.colors.grey[300],
+            borderRadius: '3px',
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            background: tokens.colors.grey[400],
+          },
+        }}
+      >
+        <List component="nav" sx={{ px: 2, pt: 2 }}>
         {loading ? (
-          // Loading Skeleton
           Array.from(new Array(5)).map((_, index) => (
-             <Box key={index} sx={{ mb: 1, px: 0 }}>
-               <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 3, bgcolor: 'rgba(0,0,0,0.04)' }} />
-             </Box>
+            <Skeleton key={index} variant="rectangular" height={46} sx={{ borderRadius: 2, mb: 1 }} />
           ))
         ) : (
-          menus.map((menu) => {
-           const hasSub = menu.submenus && menu.submenus.length > 0;
-           const isOpen = openSub[menu.key] ?? false; 
-           const Icon = ICONS[menu.key] || <CircleIcon />;
+          menus
+            // Hide RBAC menu from sidebar - pages still accessible via direct URL
+            .filter((menu) => menu.key !== 'rbac')
+            .map((menu) => {
+            const hasSub = menu.submenus && menu.submenus.length > 0;
+            const isOpen = openSub[menu.key] ?? false; 
+            const Icon = ICONS[menu.key] || <CircleIcon />;
 
-           if (menu.key === 'dashboard') {
-             const active = pathname === '/admin' || pathname === '/admin/';
-             const activeColor = "#0284c7"; // Sky Blue 600
-             const activeBg = "#e0f2fe";    // Sky Blue 100
-             return (
-               <ListItemButton
-                 key={menu.key}
-                 component={Link}
-                 href="/admin"
-                 sx={{ 
-                     borderRadius: 3, 
-                     mb: 1, 
-                     py: 1.2,
-                     color: active ? activeColor : "text.secondary",
-                     bgcolor: active ? activeBg : "transparent",
-                     "&:hover": { bgcolor: active ? activeBg : "#f8fafc", color: activeColor }
-                 }}
-               >
-                 <ListItemIcon sx={{ minWidth: 44, color: active ? activeColor : "inherit" }}>
-                   {Icon}
-                 </ListItemIcon>
-                 <ListItemText 
-                    primary={menu.label} 
-                    primaryTypographyProps={{ 
-                        fontWeight: active ? 700 : 500, 
-                        fontSize: '0.95rem'
-                    }} 
-                 />
-               </ListItemButton>
-             );
-           }
+            if (menu.key === 'dashboard') {
+              const active = pathname === '/admin' || pathname === '/admin/';
+              return (
+                <ListItemButton
+                  key={menu.key}
+                  component={Link}
+                  href="/admin"
+                  sx={{ 
+                    borderRadius: 2, 
+                    mb: 0.5, 
+                    py: 1.25,
+                    px: 2,
+                    color: active ? activeColor : tokens.colors.grey[600],
+                    bgcolor: active ? activeBg : "transparent",
+                    "&:hover": { bgcolor: activeBg }
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40, color: active ? activeColor : "inherit" }}>
+                    {Icon}
+                  </ListItemIcon>
+                  <ListItemText primary={menu.label} primaryTypographyProps={{ fontWeight: active ? 600 : 500, fontSize: '0.9rem' }} />
+                </ListItemButton>
+              );
+            }
 
-           const isAnyChildActive = menu.submenus?.some(sub => pathname === sub.route);
-           const activeColor = "#0284c7";
-           const activeBg = "#e0f2fe";
+            const isAnyChildActive = menu.submenus?.some(sub => pathname === sub.route);
 
-           return (
-            <div key={menu.key}>
-              <ListItemButton 
-                onClick={() => handleClick(menu.key)} 
-                sx={{ 
-                    borderRadius: 3, 
-                    mb: 1,
-                    py: 1.2,
-                    color: isAnyChildActive ? activeColor : "text.secondary",
-                    bgcolor: isAnyChildActive && !isOpen ? activeBg : "transparent", // Highlight parent if child active and closed
-                    "&:hover": { bgcolor: "#f8fafc", color: activeColor }
-                 }}
-              >
-                <ListItemIcon sx={{ minWidth: 44, color: isAnyChildActive ? activeColor : "inherit" }}>
-                  {Icon}
-                </ListItemIcon>
-                <ListItemText 
-                    primary={menu.label} 
-                    primaryTypographyProps={{ 
-                        fontWeight: isAnyChildActive ? 700 : 500,
-                        fontSize: '0.95rem'
-                    }} 
-                />
-                {hasSub ? (isOpen ? <ExpandLess sx={{ opacity: 0.7 }} /> : <ExpandMore sx={{ opacity: 0.7 }} />) : null}
-              </ListItemButton>
+            return (
+              <Box key={menu.key}>
+                <ListItemButton 
+                  onClick={() => handleClick(menu.key)} 
+                  sx={{ 
+                    borderRadius: 2, 
+                    mb: 0.5,
+                    py: 1.25,
+                    px: 2,
+                    color: isAnyChildActive ? activeColor : tokens.colors.grey[600],
+                    bgcolor: isAnyChildActive && !isOpen ? activeBg : "transparent",
+                    "&:hover": { bgcolor: alpha(tokens.colors.primary.main, 0.04) }
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40, color: isAnyChildActive ? activeColor : "inherit" }}>
+                    {Icon}
+                  </ListItemIcon>
+                  <ListItemText primary={menu.label} primaryTypographyProps={{ fontWeight: isAnyChildActive ? 600 : 500, fontSize: '0.9rem' }} />
+                  {hasSub && (
+                    <ExpandMore 
+                      fontSize="small" 
+                      sx={{ 
+                        color: tokens.colors.grey[400],
+                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.15s ease',
+                      }} 
+                    />
+                  )}
+                </ListItemButton>
 
-              <Collapse in={isOpen} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding sx={{ position: 'relative' }}>
-                    {/* Vertical line indicator for submenu group */}
-                    <Box sx={{
-                        position: 'absolute',
-                        left: 24,
-                        top: 0,
-                        bottom: 0,
-                        width: '2px',
-                        bgcolor: '#e2e8f0',
-                        zIndex: 0
-                    }} />
-                  
-                  {menu.submenus.map((sub) => {
-                    const active = pathname === sub.route;
-                    return (
-                      <ListItemButton
-                        key={sub.key}
-                        component={Link}
-                        href={sub.route}
-                        sx={{
-                          pl: 6.5, // Indent for hierarchy
-                          pr: 2,
-                          py: 1,
-                          mb: 0.5,
-                          borderRadius: 2,
-                          position: 'relative',
-                          zIndex: 1,
-                          color: active ? activeColor : "text.secondary",
-                          bgcolor: active ? "transparent" : "transparent",
-                          "&:hover": { color: "#0ea5e9" },
-                        }}
-                      >
-                         {/* Dot for active state */}
-                         {active && (
-                             <Box sx={{
-                                 position: 'absolute',
-                                 left: 21,
-                                 width: 8,
-                                 height: 8,
-                                 borderRadius: '50%',
-                                 bgcolor: '#0ea5e9',
-                                 boxShadow: '0 0 0 2px white'
-                             }} />
-                         )}
-                         <ListItemText 
-                            primary={sub.label} 
-                            primaryTypographyProps={{ 
-                                fontSize: "0.875rem", 
-                                fontWeight: active ? 600 : 500 
-                            }} 
-                         />
-                      </ListItemButton>
-                    );
-                  })}
-                </List>
-              </Collapse>
-            </div>
-           );
-        })
+                <Collapse in={isOpen} timeout={150}>
+                  <List component="div" disablePadding sx={{ ml: 2 }}>
+                    {menu.submenus.map((sub) => {
+                      const active = pathname === sub.route;
+                      return (
+                        <ListItemButton
+                          key={sub.key}
+                          component={Link}
+                          href={sub.route}
+                          sx={{
+                            pl: 5,
+                            py: 0.75,
+                            mb: 0.25,
+                            borderRadius: 2,
+                            color: active ? activeColor : tokens.colors.grey[600],
+                            "&:hover": { color: activeColor, bgcolor: alpha(tokens.colors.primary.main, 0.04) },
+                          }}
+                        >
+                          <Box sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            bgcolor: active ? activeColor : tokens.colors.grey[300],
+                            mr: 2,
+                          }} />
+                          <ListItemText primary={sub.label} primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: active ? 600 : 500 }} />
+                        </ListItemButton>
+                      );
+                    })}
+                  </List>
+                </Collapse>
+              </Box>
+            );
+          })
         )}
-      </List>
+        </List>
+      </Box>
     </Drawer>
   );
 }

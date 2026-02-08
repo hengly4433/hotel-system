@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -8,9 +9,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
-  TextField,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -22,11 +20,17 @@ import {
   Alert,
   Typography,
   Stack,
-  Grid,
   Chip,
-  TablePagination
+  TablePagination,
+  alpha,
 } from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, Refresh as RefreshIcon } from "@mui/icons-material";
+import { 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Add as AddIcon, 
+  Schedule as TimesheetIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 type Property = {
   id: string;
@@ -54,53 +58,15 @@ type Timesheet = {
   notes: string | null;
 };
 
-const STATUSES = ["OPEN", "SUBMITTED", "APPROVED", "REJECTED"] as const;
-const SHIFTS = ["AM", "PM", "NIGHT"] as const;
-
-const EMPTY_FORM = {
-  propertyId: "",
-  employeeId: "",
-  workDate: "",
-  shift: "AM",
-  clockIn: "",
-  clockOut: "",
-  breakMinutes: "0",
-  status: "OPEN",
-  notes: ""
-};
-
-function toDateTimeInput(value: string | null) {
-  if (!value) return "";
-  try {
-    return new Date(value).toISOString().slice(0, 16);
-  } catch {
-    return "";
-  }
-}
-
-function toIsoOrNull(value: string) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
-}
-
 export default function TimesheetsPage() {
+  const router = useRouter();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedProperty, setSelectedProperty] = useState("");
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [error, setError] = useState<string | null>(null);
-
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const employeesForProperty = useMemo(() => {
-    if (!selectedProperty) return employees;
-    return employees.filter((employee) => employee.propertyId === selectedProperty);
-  }, [employees, selectedProperty]);
 
   const loadLookups = useCallback(async () => {
     try {
@@ -110,15 +76,14 @@ export default function TimesheetsPage() {
       ]);
       setProperties(propertiesData);
       setEmployees(employeesData);
-      if (!selectedProperty && propertiesData.length > 0) {
-        setSelectedProperty(propertiesData[0].id);
-        setForm((prev) => ({ ...prev, propertyId: propertiesData[0].id }));
+      if (!selectedPropertyId && propertiesData.length > 0) {
+        setSelectedPropertyId(propertiesData[0].id);
       }
       setError(null);
     } catch (err) {
       setError(getErrorMessage(err));
     }
-  }, [selectedProperty]);
+  }, [selectedPropertyId]);
 
   const loadTimesheets = useCallback(
     async (propertyId: string) => {
@@ -142,76 +107,23 @@ export default function TimesheetsPage() {
   }, [loadLookups]);
 
   useEffect(() => {
-    if (!selectedProperty) return undefined;
+    if (!selectedPropertyId) return undefined;
     const timer = setTimeout(() => {
-      void loadTimesheets(selectedProperty);
+      void loadTimesheets(selectedPropertyId);
     }, 0);
     return () => clearTimeout(timer);
-  }, [loadTimesheets, selectedProperty]);
+  }, [loadTimesheets, selectedPropertyId]);
 
-  function resetForm() {
-    setEditingId(null);
-    setForm((prev) => ({
-      ...EMPTY_FORM,
-      propertyId: prev.propertyId || selectedProperty
-    }));
-  }
-
-  function startEdit(timesheet: Timesheet) {
-    setEditingId(timesheet.id);
-    setForm({
-      propertyId: timesheet.propertyId,
-      employeeId: timesheet.employeeId,
-      workDate: timesheet.workDate,
-      shift: timesheet.shift,
-      clockIn: toDateTimeInput(timesheet.clockIn),
-      clockOut: toDateTimeInput(timesheet.clockOut),
-      breakMinutes: String(timesheet.breakMinutes ?? 0),
-      status: timesheet.status || "OPEN",
-      notes: timesheet.notes || ""
-    });
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    const payload = {
-      propertyId: form.propertyId,
-      employeeId: form.employeeId,
-      workDate: form.workDate,
-      shift: form.shift,
-      clockIn: toIsoOrNull(form.clockIn),
-      clockOut: toIsoOrNull(form.clockOut),
-      breakMinutes: form.breakMinutes ? Number(form.breakMinutes) : 0,
-      status: form.status,
-      notes: form.notes || null
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`timesheets/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("timesheets", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-      await loadTimesheets(form.propertyId);
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
+  const selectedProperty = useMemo(
+    () => properties.find((p) => p.id === selectedPropertyId) || null,
+    [properties, selectedPropertyId]
+  );
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this timesheet?")) return;
     try {
       await apiJson(`timesheets/${id}`, { method: "DELETE" });
-      await loadTimesheets(selectedProperty);
+      await loadTimesheets(selectedPropertyId);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -223,248 +135,188 @@ export default function TimesheetsPage() {
     return `${employee.firstName} ${employee.lastName}`.trim();
   }
 
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  function getStatusColor(status: string) {
+    switch(status) {
+      case "APPROVED": return { bg: alpha("#22c55e", 0.15), color: "#166534" };
+      case "REJECTED": return { bg: alpha("#ef4444", 0.15), color: "#b91c1c" };
+      case "SUBMITTED": return { bg: alpha("#3b82f6", 0.15), color: "#1e40af" };
+      default: return { bg: tokens.colors.grey[100], color: tokens.colors.grey[600] };
+    }
+  }
 
   return (
-    <main>
-      <PageHeader title="Timesheets" subtitle="Track employee shifts and hours" />
+    <Box component="main">
+      <PageHeader 
+        title="Timesheets" 
+        subtitle="Track employee shifts and hours"
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/timesheets/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Timesheet
+          </Button>
+        }
+      />
       
       <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-       <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <CardContent sx={{ p: 4 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                    {editingId ? "Edit Timesheet" : "New Timesheet"}
-                </Typography>
-                
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-                    <Grid container spacing={3}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Property"
-                                value={form.propertyId}
-                                onChange={(event) => {
-                                    const value = event.target.value;
-                                    setForm((prev) => ({ ...prev, propertyId: value }));
-                                    setSelectedProperty(value);
-                                }}
-                                required
-                                fullWidth
+        {/* Table */}
+        <Card 
+          sx={{ 
+            borderRadius: 3, 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Employee</TableCell>
+                  <TableCell>Shift</TableCell>
+                  <TableCell>Clock In</TableCell>
+                  <TableCell>Clock Out</TableCell>
+                  <TableCell>Minutes</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {timesheets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <TimesheetIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No timesheets found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          Create your first time entry
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => router.push("/admin/timesheets/new")}
+                          size="small"
+                        >
+                          Add Timesheet
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  timesheets
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((timesheet, index) => {
+                      const statusStyle = getStatusColor(timesheet.status);
+                      return (
+                        <TableRow 
+                          key={timesheet.id} 
+                          hover
+                          sx={{
+                            '&:hover': {
+                              bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                            }
+                          }}
+                        >
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {page * rowsPerPage + index + 1}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 500 }}>{timesheet.workDate}</TableCell>
+                          <TableCell>{employeeLabel(timesheet.employeeId)}</TableCell>
+                          <TableCell>{timesheet.shift}</TableCell>
+                          <TableCell>
+                            {timesheet.clockIn ? new Date(timesheet.clockIn).toLocaleString() : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {timesheet.clockOut ? new Date(timesheet.clockOut).toLocaleString() : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                fontFamily: 'monospace',
+                                fontWeight: 600,
+                              }}
                             >
-                                <MenuItem value="">Select property</MenuItem>
-                                {properties.map((property) => (
-                                <MenuItem key={property.id} value={property.id}>
-                                    {property.name}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Employee"
-                                value={form.employeeId}
-                                onChange={(event) => setForm((prev) => ({ ...prev, employeeId: event.target.value }))}
-                                required
-                                fullWidth
-                            >
-                                <MenuItem value="">Select employee</MenuItem>
-                                {employeesForProperty.map((employee) => (
-                                <MenuItem key={employee.id} value={employee.id}>
-                                    {employee.firstName} {employee.lastName}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                type="date"
-                                label="Work Date"
-                                value={form.workDate}
-                                onChange={(event) => setForm((prev) => ({ ...prev, workDate: event.target.value }))}
-                                required
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Shift"
-                                value={form.shift}
-                                onChange={(event) => setForm((prev) => ({ ...prev, shift: event.target.value }))}
-                                fullWidth
-                            >
-                                {SHIFTS.map((shift) => (
-                                    <MenuItem key={shift} value={shift}>
-                                        {shift}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                type="datetime-local"
-                                label="Clock In"
-                                value={form.clockIn}
-                                onChange={(event) => setForm((prev) => ({ ...prev, clockIn: event.target.value }))}
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                type="datetime-local"
-                                label="Clock Out"
-                                value={form.clockOut}
-                                onChange={(event) => setForm((prev) => ({ ...prev, clockOut: event.target.value }))}
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                            />
-                        </Grid>
-
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                type="number"
-                                label="Break Minutes"
-                                value={form.breakMinutes}
-                                onChange={(event) => setForm((prev) => ({ ...prev, breakMinutes: event.target.value }))}
-                                fullWidth
-                                inputProps={{ min: 0 }}
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Status"
-                                value={form.status}
-                                onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}
-                                fullWidth
-                            >
-                                {STATUSES.map((status) => (
-                                    <MenuItem key={status} value={status}>
-                                        {status}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                             <TextField
-                                multiline
-                                rows={2}
-                                label="Notes"
-                                value={form.notes}
-                                onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
-                                fullWidth
-                            />
-                        </Grid>
-
-                         <Grid size={{ xs: 12 }}>
-                             <Stack direction="row" spacing={2} justifyContent="flex-end">
-                                <Button 
-                                    type="submit" 
-                                    variant="contained" 
-                                    startIcon={!editingId && <AddIcon />}
-                                >
-                                    {editingId ? "Update" : "Create"}
-                                </Button>
-                                {editingId && (
-                                    <Button variant="outlined" onClick={resetForm}>
-                                        Clear
-                                    </Button>
-                                )}
-                            </Stack>
-                        </Grid>
-                    </Grid>
-                </Box>
-            </CardContent>
-        </Card>
-
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <TableContainer component={Paper} elevation={0}>
-                <Table>
-                <TableHead sx={{ bgcolor: "#f8fafc" }}>
-                    <TableRow>
-                    <TableCell sx={{ fontWeight: "bold", width: 60 }}>No</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Employee</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Shift</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Clock In</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Clock Out</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Minutes</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: "bold", maxWidth: 200 }}>Notes</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold" }}>Actions</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {timesheets
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((timesheet, index) => (
-                    <TableRow key={timesheet.id} hover>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>{timesheet.workDate}</TableCell>
-                        <TableCell>{employeeLabel(timesheet.employeeId)}</TableCell>
-                        <TableCell>{timesheet.shift}</TableCell>
-                        <TableCell>{timesheet.clockIn ? new Date(timesheet.clockIn).toLocaleString() : "-"}</TableCell>
-                        <TableCell>{timesheet.clockOut ? new Date(timesheet.clockOut).toLocaleString() : "-"}</TableCell>
-                        <TableCell>{timesheet.totalMinutes}</TableCell>
-                        <TableCell>
+                              {timesheet.totalMinutes}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
                             <Chip 
-                                label={timesheet.status} 
-                                size="small" 
-                                color={
-                                    timesheet.status === "APPROVED" ? "success" : 
-                                    timesheet.status === "REJECTED" ? "error" : "default"
-                                } 
+                              label={timesheet.status} 
+                              size="small" 
+                              sx={{ 
+                                bgcolor: statusStyle.bg, 
+                                color: statusStyle.color,
+                                fontWeight: 600,
+                              }} 
                             />
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {timesheet.notes || "-"}
-                        </TableCell>
-                        <TableCell align="right">
-                        <IconButton size="small" onClick={() => startEdit(timesheet)} color="primary">
-                            <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(timesheet.id)} color="error">
-                            <DeleteIcon />
-                        </IconButton>
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                    {timesheets.length === 0 && (
-                     <TableRow>
-                        <TableCell colSpan={10} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                            No timesheets found
-                        </TableCell>
-                     </TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </TableContainer>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                              <IconButton 
+                                size="small" 
+                                onClick={() => router.push(`/admin/timesheets/${timesheet.id}`)}
+                                sx={{
+                                  bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                  color: tokens.colors.primary.main,
+                                  '&:hover': { bgcolor: alpha(tokens.colors.primary.main, 0.15) }
+                                }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleDelete(timesheet.id)}
+                                sx={{
+                                  bgcolor: alpha(tokens.colors.error.main, 0.08),
+                                  color: tokens.colors.error.main,
+                                  '&:hover': { bgcolor: alpha(tokens.colors.error.main, 0.15) }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {timesheets.length > 0 && (
             <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={timesheets.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={timesheets.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
             />
+          )}
         </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

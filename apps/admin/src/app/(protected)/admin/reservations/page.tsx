@@ -20,6 +20,9 @@ import {
   Tooltip,
   Typography,
   Alert,
+  Paper,
+  Stack,
+  alpha,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -27,7 +30,14 @@ import {
   Logout as CheckOutIcon,
   Cancel as CancelIcon,
   Event as EventIcon,
+  CalendarMonth as CalendarIcon,
+  People as PeopleIcon,
+  MeetingRoom as RoomIcon,
+  CheckCircle as CheckCircleIcon,
+  HourglassEmpty as PendingIcon,
+  DoNotDisturb as CancelledIcon,
 } from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 type Reservation = {
   id: string;
@@ -45,6 +55,41 @@ type Reservation = {
     ratePlanId: string;
     guestsInRoom: number;
   }>;
+};
+
+const STATUS_CONFIG: Record<string, { 
+  color: string; 
+  bg: string; 
+  icon: React.ReactElement;
+  gradient?: string;
+}> = {
+  CONFIRMED: { 
+    color: tokens.colors.success.dark, 
+    bg: alpha(tokens.colors.success.main, 0.12),
+    icon: <CheckCircleIcon sx={{ fontSize: 14 }} />,
+    gradient: `linear-gradient(135deg, ${tokens.colors.success.main} 0%, ${tokens.colors.success.dark} 100%)`,
+  },
+  CHECKED_IN: { 
+    color: tokens.colors.primary.dark, 
+    bg: alpha(tokens.colors.primary.main, 0.12),
+    icon: <CheckInIcon sx={{ fontSize: 14 }} />,
+    gradient: `linear-gradient(135deg, ${tokens.colors.primary.main} 0%, ${tokens.colors.primary.dark} 100%)`,
+  },
+  CHECKED_OUT: { 
+    color: tokens.colors.grey[600], 
+    bg: tokens.colors.grey[100],
+    icon: <CheckOutIcon sx={{ fontSize: 14 }} />,
+  },
+  CANCELLED: { 
+    color: tokens.colors.error.main, 
+    bg: alpha(tokens.colors.error.main, 0.08),
+    icon: <CancelledIcon sx={{ fontSize: 14 }} />,
+  },
+  PENDING: { 
+    color: tokens.colors.warning.dark, 
+    bg: alpha(tokens.colors.warning.main, 0.12),
+    icon: <PendingIcon sx={{ fontSize: 14 }} />,
+  },
 };
 
 export default function ReservationsPage() {
@@ -96,32 +141,25 @@ export default function ReservationsPage() {
     }
   }
 
-  function getStatusColor(status: string) {
-    switch (status) {
-      case "CONFIRMED":
-        return "success";
-      case "CHECKED_IN":
-        return "info";
-      case "CHECKED_OUT":
-        return "default";
-      case "CANCELLED":
-        return "error";
-      default:
-        return "default";
-    }
+  function formatDate(dateStr: string) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   return (
-    <Box>
+    <Box component="main">
       <PageHeader
         title="Reservations"
-        subtitle="View and manage bookings"
+        subtitle="View and manage all bookings"
         action={
           <Button
             variant="contained"
             component={Link}
             href="/admin/reservations/new"
             startIcon={<EventIcon />}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
           >
             New Reservation
           </Button>
@@ -129,17 +167,29 @@ export default function ReservationsPage() {
       />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3 }} 
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
 
-      <Card>
-        <TableContainer>
+      <Card 
+        sx={{ 
+          borderRadius: "18px",
+          boxShadow: tokens.shadows.card,
+          border: `1px solid ${tokens.colors.grey[200]}`,
+          overflow: 'hidden',
+        }}
+      >
+        <TableContainer component={Paper} elevation={0}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Code</TableCell>
+                <TableCell width={60}>No</TableCell>
+                <TableCell>Booking</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Dates</TableCell>
                 <TableCell>Guests</TableCell>
@@ -150,89 +200,193 @@ export default function ReservationsPage() {
             <TableBody>
               {reservations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">
-                      No reservations found.
-                    </Typography>
+                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <EventIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                        No reservations found
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Create your first reservation to get started
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        component={Link}
+                        href="/admin/reservations/new"
+                        startIcon={<EventIcon />}
+                        size="small"
+                      >
+                        New Reservation
+                      </Button>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ) : (
-                reservations.map((res) => (
-                  <TableRow key={res.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
-                        {res.code}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={res.status}
-                        size="small"
-                        color={getStatusColor(res.status) as any}
-                        variant={res.status === "CANCELLED" ? "outlined" : "filled"}
-                        sx={{ fontWeight: 600, fontSize: "0.7rem", height: 24 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {res.checkInDate} → {res.checkOutDate}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {res.adults} Ad, {res.children} Ch
-                    </TableCell>
-                    <TableCell>{res.rooms.length}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Edit">
-                        <IconButton
-                          component={Link}
-                          href={`/admin/reservations/${res.id}`}
+                reservations.map((res, index) => {
+                  const statusConfig = STATUS_CONFIG[res.status] || STATUS_CONFIG.PENDING;
+                  return (
+                    <TableRow 
+                      key={res.id} 
+                      hover
+                      sx={{
+                        '&:hover': {
+                          bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {index + 1}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box>
+                          <Typography 
+                            variant="body2" 
+                            fontWeight={700}
+                            sx={{ 
+                              color: tokens.colors.primary.main,
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            {res.code}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {res.channel || 'Direct'}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          icon={statusConfig.icon}
+                          label={res.status.replace('_', ' ')}
                           size="small"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-
-                      {res.status !== "CANCELLED" && res.status !== "CHECKED_OUT" && (
-                        <>
-                          {res.status !== "CHECKED_IN" && (
-                            <Tooltip title="Check In">
-                              <IconButton
-                                onClick={() => handleCheckIn(res.id)}
-                                size="small"
-                                color="info"
-                              >
-                                <CheckInIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          
-                          {res.status === "CHECKED_IN" && (
-                            <Tooltip title="Check Out">
-                              <IconButton
-                                onClick={() => handleCheckOut(res.id)}
-                                size="small"
-                                color="success"
-                              >
-                                <CheckOutIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-
-                          <Tooltip title="Cancel">
+                          sx={{ 
+                            fontWeight: 600, 
+                            fontSize: '0.7rem', 
+                            height: 26,
+                            bgcolor: statusConfig.bg,
+                            color: statusConfig.color,
+                            '& .MuiChip-icon': {
+                              color: statusConfig.color,
+                            },
+                            ...(res.status === 'CANCELLED' && {
+                              borderStyle: 'dashed',
+                              borderWidth: 1,
+                              borderColor: statusConfig.color,
+                            })
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CalendarIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
+                          <Box>
+                            <Typography variant="body2" fontWeight={500}>
+                              {formatDate(res.checkInDate)} → {formatDate(res.checkOutDate)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {Math.ceil((new Date(res.checkOutDate).getTime() - new Date(res.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} nights
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <PeopleIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
+                          <Typography variant="body2">
+                            {res.adults} Adult{res.adults !== 1 ? 's' : ''}
+                            {res.children > 0 && `, ${res.children} Child${res.children !== 1 ? 'ren' : ''}`}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <RoomIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
+                          <Typography variant="body2" fontWeight={500}>
+                            {res.rooms.length} Room{res.rooms.length !== 1 ? 's' : ''}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="Edit" arrow>
                             <IconButton
-                              onClick={() => handleCancel(res.id)}
+                              component={Link}
+                              href={`/admin/reservations/${res.id}`}
                               size="small"
-                              color="error"
+                              sx={{
+                                bgcolor: alpha(tokens.colors.grey[500], 0.08),
+                                '&:hover': {
+                                  bgcolor: alpha(tokens.colors.primary.main, 0.12),
+                                  color: tokens.colors.primary.main,
+                                }
+                              }}
                             >
-                              <CancelIcon fontSize="small" />
+                              <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                        </>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+
+                          {res.status !== "CANCELLED" && res.status !== "CHECKED_OUT" && (
+                            <>
+                              {res.status !== "CHECKED_IN" && (
+                                <Tooltip title="Check In" arrow>
+                                  <IconButton
+                                    onClick={() => handleCheckIn(res.id)}
+                                    size="small"
+                                    sx={{
+                                      bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                      color: tokens.colors.primary.main,
+                                      '&:hover': {
+                                        bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                                      }
+                                    }}
+                                  >
+                                    <CheckInIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              
+                              {res.status === "CHECKED_IN" && (
+                                <Tooltip title="Check Out" arrow>
+                                  <IconButton
+                                    onClick={() => handleCheckOut(res.id)}
+                                    size="small"
+                                    sx={{
+                                      bgcolor: alpha(tokens.colors.success.main, 0.08),
+                                      color: tokens.colors.success.main,
+                                      '&:hover': {
+                                        bgcolor: alpha(tokens.colors.success.main, 0.15),
+                                      }
+                                    }}
+                                  >
+                                    <CheckOutIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+
+                              <Tooltip title="Cancel" arrow>
+                                <IconButton
+                                  onClick={() => handleCancel(res.id)}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: alpha(tokens.colors.error.main, 0.08),
+                                    color: tokens.colors.error.main,
+                                    '&:hover': {
+                                      bgcolor: alpha(tokens.colors.error.main, 0.15),
+                                    }
+                                  }}
+                                >
+                                  <CancelIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

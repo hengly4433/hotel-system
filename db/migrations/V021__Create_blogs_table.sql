@@ -1,0 +1,12 @@
+CREATE TABLE blogs (
+    id UUID PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    tag VARCHAR(255),
+    description VARCHAR(1000),
+    image_url VARCHAR(255),
+    content TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);

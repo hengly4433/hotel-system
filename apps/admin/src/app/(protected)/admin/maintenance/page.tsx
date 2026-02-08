@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -8,9 +9,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
-  TextField,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -22,13 +20,19 @@ import {
   Alert,
   Typography,
   Stack,
-  Grid,
   Chip,
-  List,
-  ListItem,
-  TablePagination
+  TablePagination,
+  alpha,
 } from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, PlayArrow, CheckCircle } from "@mui/icons-material";
+import { 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Add as AddIcon, 
+  PlayArrow, 
+  CheckCircle, 
+  Build as MaintenanceIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 type Property = {
   id: string;
@@ -61,28 +65,15 @@ type Ticket = {
   overdue: boolean;
 };
 
-const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
-const STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"] as const;
-
-const EMPTY_FORM = {
-  propertyId: "",
-  roomId: "",
-  priority: "MEDIUM",
-  status: "OPEN",
-  description: "",
-  reportedByUserId: "",
-  assignedToEmployeeId: ""
-};
-
 export default function MaintenancePage() {
+  const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [events, setEvents] = useState<Array<{ status: string; changedAt: string; changedByUserId: string | null }>>([]);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const loadData = useCallback(async () => {
     try {
@@ -117,59 +108,6 @@ export default function MaintenancePage() {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  function startEdit(ticket: Ticket) {
-    setEditingId(ticket.id);
-    setForm({
-      propertyId: ticket.propertyId,
-      roomId: ticket.roomId,
-      priority: ticket.priority,
-      status: ticket.status,
-      description: ticket.description,
-      reportedByUserId: ticket.reportedByUserId || "",
-      assignedToEmployeeId: ticket.assignedToEmployeeId || ""
-    });
-    loadEvents(ticket.id);
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setEvents([]);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    const payload = {
-      propertyId: form.propertyId,
-      roomId: form.roomId,
-      priority: form.priority,
-      status: form.status,
-      description: form.description,
-      reportedByUserId: form.reportedByUserId || null,
-      assignedToEmployeeId: form.assignedToEmployeeId || null
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`maintenance/tickets/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("maintenance/tickets", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-      await loadData();
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
-
   async function handleDelete(id: string) {
     if (!confirm("Delete this ticket?")) return;
     try {
@@ -203,276 +141,225 @@ export default function MaintenancePage() {
     }
   }
 
-  async function loadEvents(ticketId: string) {
-    try {
-      const data = await apiJson<Array<{ status: string; changedAt: string; changedByUserId: string | null }>>(
-        `maintenance/tickets/${ticketId}/events`
-      );
-      setEvents(data);
-    } catch (err) {
-      setError(getErrorMessage(err));
+  function getPriorityColor(priority: string) {
+    switch(priority) {
+      case "URGENT": return { bg: alpha("#ef4444", 0.15), color: "#b91c1c" };
+      case "HIGH": return { bg: alpha("#f59e0b", 0.15), color: "#92400e" };
+      case "MEDIUM": return { bg: alpha("#3b82f6", 0.15), color: "#1e40af" };
+      default: return { bg: tokens.colors.grey[100], color: tokens.colors.grey[600] };
     }
   }
 
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  function getStatusColor(status: string) {
+    switch(status) {
+      case "RESOLVED": 
+      case "CLOSED": return { bg: alpha("#22c55e", 0.15), color: "#166534" };
+      case "IN_PROGRESS": return { bg: alpha("#f59e0b", 0.15), color: "#92400e" };
+      default: return { bg: tokens.colors.grey[100], color: tokens.colors.grey[600] };
+    }
+  }
 
   return (
-    <main>
-      <PageHeader title="Maintenance" subtitle="Work orders and tickets" />
+    <Box component="main">
+      <PageHeader 
+        title="Maintenance" 
+        subtitle="Work orders and tickets"
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/maintenance/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Ticket
+          </Button>
+        }
+      />
       
       <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-       <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <CardContent sx={{ p: 4 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                    {editingId ? "Edit Ticket" : "Create Ticket"}
-                </Typography>
-                
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-                    <Grid container spacing={3}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Property"
-                                value={form.propertyId}
-                                onChange={(e) => setForm({ ...form, propertyId: e.target.value })}
-                                required
-                                fullWidth
-                            >
-                                <MenuItem value="">Select</MenuItem>
-                                {properties.map((property) => (
-                                <MenuItem key={property.id} value={property.id}>
-                                    {property.name}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Room"
-                                value={form.roomId}
-                                onChange={(e) => setForm({ ...form, roomId: e.target.value })}
-                                required
-                                fullWidth
-                            >
-                                <MenuItem value="">Select</MenuItem>
-                                {rooms.map((room) => (
-                                <MenuItem key={room.id} value={room.id}>
-                                    {room.roomNumber}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Priority"
-                                value={form.priority}
-                                onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                                fullWidth
-                            >
-                                {PRIORITIES.map((priority) => (
-                                    <MenuItem key={priority} value={priority}>
-                                        {priority}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Status"
-                                value={form.status}
-                                onChange={(e) => setForm({ ...form, status: e.target.value })}
-                                fullWidth
-                            >
-                                {STATUSES.map((status) => (
-                                    <MenuItem key={status} value={status}>
-                                        {status}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                             <TextField
-                                multiline
-                                rows={3}
-                                label="Description"
-                                value={form.description}
-                                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                                required
-                                fullWidth
-                            />
-                        </Grid>
-
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                label="Reported By (User ID)"
-                                value={form.reportedByUserId}
-                                onChange={(e) => setForm({ ...form, reportedByUserId: e.target.value })}
-                                fullWidth
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Assigned Employee"
-                                value={form.assignedToEmployeeId}
-                                onChange={(e) => setForm({ ...form, assignedToEmployeeId: e.target.value })}
-                                fullWidth
-                            >
-                                <MenuItem value="">Unassigned</MenuItem>
-                                {employees.map((employee) => (
-                                <MenuItem key={employee.id} value={employee.id}>
-                                    {employee.firstName} {employee.lastName}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                             <Stack direction="row" spacing={2} justifyContent="flex-end">
-                                <Button 
-                                    type="submit" 
-                                    variant="contained" 
-                                    startIcon={!editingId && <AddIcon />}
-                                >
-                                    {editingId ? "Update" : "Create"}
-                                </Button>
-                                {editingId && (
-                                    <Button variant="outlined" onClick={resetForm}>
-                                        Cancel
-                                    </Button>
-                                )}
-                            </Stack>
-                        </Grid>
-                    </Grid>
-                </Box>
-
-                 {editingId && events.length > 0 && (
-                    <Box sx={{ mt: 4 }}>
-                         <Typography variant="subtitle2" gutterBottom>Status Timeline</Typography>
-                         <List dense disablePadding>
-                             {events.map((event, index) => (
-                                <ListItem key={index} divider={index < events.length - 1}>
-                                     <Grid container>
-                                         <Grid size={{ xs: 4 }}><Typography variant="body2" fontWeight="medium">{event.status}</Typography></Grid>
-                                         <Grid size={{ xs: 4 }}><Typography variant="body2" color="text.secondary">{new Date(event.changedAt).toLocaleString()}</Typography></Grid>
-                                         <Grid size={{ xs: 4 }}><Typography variant="body2" align="right">{event.changedByUserId || "system"}</Typography></Grid>
-                                     </Grid>
-                                </ListItem>
-                             ))}
-                         </List>
-                    </Box>
-                )}
-            </CardContent>
-        </Card>
-
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <TableContainer component={Paper} elevation={0}>
-                <Table>
-                <TableHead sx={{ bgcolor: "#f8fafc" }}>
-                    <TableRow>
-                    <TableCell sx={{ fontWeight: "bold", width: 60 }}>No</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Room</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Priority</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Assigned</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Due</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold" }}>Actions</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {tickets
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((ticket, index) => (
-                    <TableRow key={ticket.id} hover>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>
+        {/* Table */}
+        <Card 
+          sx={{ 
+            borderRadius: 3, 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Room</TableCell>
+                  <TableCell>Priority</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Assigned</TableCell>
+                  <TableCell>Due</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {tickets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <MaintenanceIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No maintenance tickets found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          Create your first work order
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => router.push("/admin/maintenance/new")}
+                          size="small"
+                        >
+                          Add Ticket
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  tickets
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((ticket, index) => {
+                      const priorityStyle = getPriorityColor(ticket.priority);
+                      const statusStyle = getStatusColor(ticket.status);
+                      return (
+                        <TableRow 
+                          key={ticket.id} 
+                          hover
+                          sx={{
+                            '&:hover': {
+                              bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                            }
+                          }}
+                        >
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {page * rowsPerPage + index + 1}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
                             <Typography variant="body2" fontWeight="medium">
-                                {roomLabel(ticket.roomId)}
+                              {roomLabel(ticket.roomId)}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                                {propertyName(ticket.propertyId)}
+                              {propertyName(ticket.propertyId)}
                             </Typography>
-                        </TableCell>
-                        <TableCell>
-                             <Chip 
-                                label={ticket.priority} 
-                                size="small" 
-                                color={
-                                    ticket.priority === "URGENT" ? "error" :
-                                    ticket.priority === "HIGH" ? "warning" : "default"
-                                } 
-                                variant={ticket.priority === "URGENT" ? "filled" : "outlined"}
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={ticket.priority} 
+                              size="small" 
+                              sx={{ 
+                                bgcolor: priorityStyle.bg, 
+                                color: priorityStyle.color,
+                                fontWeight: 600,
+                              }} 
                             />
-                        </TableCell>
-                        <TableCell>
-                             <Chip 
-                                label={ticket.status} 
-                                size="small" 
-                                color={
-                                    ticket.status === "RESOLVED" || ticket.status === "CLOSED" ? "success" : "default"
-                                } 
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={ticket.status} 
+                              size="small" 
+                              sx={{ 
+                                bgcolor: statusStyle.bg, 
+                                color: statusStyle.color,
+                                fontWeight: 600,
+                              }} 
                             />
-                        </TableCell>
-                        <TableCell>{employeeName(ticket.assignedToEmployeeId)}</TableCell>
-                        <TableCell sx={{ color: ticket.overdue ? "error.main" : "text.primary" }}>
+                          </TableCell>
+                          <TableCell>{employeeName(ticket.assignedToEmployeeId)}</TableCell>
+                          <TableCell sx={{ color: ticket.overdue ? "error.main" : "text.primary" }}>
                             {ticket.dueAt ? new Date(ticket.dueAt).toLocaleString() : "-"}
-                        </TableCell>
-                        <TableCell align="right">
-                           <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                <IconButton size="small" title="Start" onClick={() => updateWorkflow(ticket.id, "start")}>
-                                    <PlayArrow fontSize="small" />
-                                </IconButton>
-                                <IconButton size="small" title="Resolve" onClick={() => updateWorkflow(ticket.id, "resolve")}>
-                                    <CheckCircle fontSize="small" />
-                                </IconButton>
-                                <IconButton size="small" title="Edit" onClick={() => startEdit(ticket)} color="primary">
-                                    <EditIcon fontSize="small" />
-                                </IconButton>
-                                <IconButton size="small" title="Delete" onClick={() => handleDelete(ticket.id)} color="error">
-                                    <DeleteIcon fontSize="small" />
-                                </IconButton>
-                           </Stack>
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                    {tickets.length === 0 && (
-                     <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                            No maintenance tickets found
-                        </TableCell>
-                     </TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </TableContainer>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                              <IconButton 
+                                size="small" 
+                                title="Start" 
+                                onClick={() => updateWorkflow(ticket.id, "start")}
+                                sx={{
+                                  bgcolor: alpha("#f59e0b", 0.08),
+                                  color: "#92400e",
+                                  '&:hover': { bgcolor: alpha("#f59e0b", 0.15) }
+                                }}
+                              >
+                                <PlayArrow fontSize="small" />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                title="Resolve" 
+                                onClick={() => updateWorkflow(ticket.id, "resolve")}
+                                sx={{
+                                  bgcolor: alpha("#22c55e", 0.08),
+                                  color: "#166534",
+                                  '&:hover': { bgcolor: alpha("#22c55e", 0.15) }
+                                }}
+                              >
+                                <CheckCircle fontSize="small" />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                title="Edit" 
+                                onClick={() => router.push(`/admin/maintenance/${ticket.id}`)}
+                                sx={{
+                                  bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                  color: tokens.colors.primary.main,
+                                  '&:hover': { bgcolor: alpha(tokens.colors.primary.main, 0.15) }
+                                }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                title="Delete" 
+                                onClick={() => handleDelete(ticket.id)}
+                                sx={{
+                                  bgcolor: alpha(tokens.colors.error.main, 0.08),
+                                  color: tokens.colors.error.main,
+                                  '&:hover': { bgcolor: alpha(tokens.colors.error.main, 0.15) }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {tickets.length > 0 && (
             <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={tickets.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={tickets.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
             />
+          )}
         </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

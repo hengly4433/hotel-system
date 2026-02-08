@@ -1,25 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
 import type { RbacPermission } from "@/lib/types/rbac";
-
-const EMPTY_FORM = {
-  resource: "",
-  action: "",
-  scope: ""
-};
+import {
+  Box,
+  Button,
+  Card,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Alert,
+  Typography,
+  Stack,
+  Chip,
+  TablePagination,
+  Tooltip,
+  alpha,
+} from "@mui/material";
+import { 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Add as AddIcon, 
+  Security as SecurityIcon,
+  Key as KeyIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 export default function PermissionsPage() {
+  const router = useRouter();
   const [permissions, setPermissions] = useState<RbacPermission[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setError(null);
     try {
       const data = await apiJson<RbacPermission[]>("rbac/permissions");
@@ -27,58 +48,14 @@ export default function PermissionsPage() {
     } catch (err) {
       setError(getErrorMessage(err));
     }
-  }
-
-  useEffect(() => {
-    loadData();
   }, []);
 
-  function startEdit(permission: RbacPermission) {
-    setEditingId(permission.id);
-    setForm({
-      resource: permission.resource,
-      action: permission.action,
-      scope: permission.scope || ""
-    });
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const payload = {
-      resource: form.resource,
-      action: form.action,
-      scope: form.scope || null
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`rbac/permissions/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("rbac/permissions", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-
-      await loadData();
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadData]);
 
   async function handleDelete(permissionId: string) {
     if (!confirm("Delete this permission?")) return;
@@ -90,94 +67,230 @@ export default function PermissionsPage() {
     }
   }
 
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const getActionColor = (action: string) => {
+    const colors: Record<string, { bg: string; color: string }> = {
+      CREATE: { bg: alpha(tokens.colors.success.main, 0.1), color: tokens.colors.success.dark },
+      READ: { bg: alpha(tokens.colors.primary.main, 0.1), color: tokens.colors.primary.dark },
+      UPDATE: { bg: alpha(tokens.colors.warning.main, 0.1), color: tokens.colors.warning.dark },
+      DELETE: { bg: alpha(tokens.colors.error.main, 0.1), color: tokens.colors.error.dark },
+    };
+    return colors[action.toUpperCase()] || { bg: alpha(tokens.colors.grey[500], 0.1), color: tokens.colors.grey[700] };
+  };
+
   return (
-    <main>
-      <PageHeader title="Permissions" subtitle="Granular access rules" />
-
-      <form
-        onSubmit={handleSubmit}
-        style={{ background: "white", padding: 24, borderRadius: 10, marginBottom: 24 }}
-      >
-        <h3 style={{ marginTop: 0 }}>{editingId ? "Edit Permission" : "Create Permission"}</h3>
-        <div style={{ display: "grid", gap: 12 }}>
-          <label>
-            <div>Resource</div>
-            <input
-              value={form.resource}
-              onChange={(e) => setForm({ ...form, resource: e.target.value })}
-              required
-              style={{ width: "100%", padding: 8 }}
-            />
-          </label>
-          <label>
-            <div>Action</div>
-            <input
-              value={form.action}
-              onChange={(e) => setForm({ ...form, action: e.target.value })}
-              required
-              style={{ width: "100%", padding: 8 }}
-            />
-          </label>
-          <label>
-            <div>Scope (optional)</div>
-            <input
-              value={form.scope}
-              onChange={(e) => setForm({ ...form, scope: e.target.value })}
-              style={{ width: "100%", padding: 8 }}
-            />
-          </label>
-        </div>
-        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ padding: "8px 14px", background: "#0f172a", color: "white", border: "none" }}
+    <Box component="main">
+      <PageHeader
+        title="Permissions"
+        subtitle="Granular access rules for your system"
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/settings/rbac/permissions/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
           >
-            {loading ? "Saving..." : editingId ? "Update" : "Create"}
-          </button>
-          {editingId ? (
-            <button type="button" onClick={resetForm} style={{ padding: "8px 14px" }}>
-              Cancel
-            </button>
-          ) : null}
-        </div>
-        {error ? <div style={{ color: "#b91c1c", marginTop: 12 }}>{error}</div> : null}
-      </form>
+            New Permission
+          </Button>
+        }
+      />
 
-      <div style={{ background: "white", padding: 24, borderRadius: 10 }}>
-        <h3 style={{ marginTop: 0 }}>Permissions</h3>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left" }}>
-              <th>Resource</th>
-              <th>Action</th>
-              <th>Scope</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {permissions.map((permission) => (
-              <tr key={permission.id} style={{ borderTop: "1px solid #e2e8f0" }}>
-                <td>{permission.resource}</td>
-                <td>{permission.action}</td>
-                <td>{permission.scope || "-"}</td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    type="button"
-                    onClick={() => startEdit(permission)}
-                    style={{ marginRight: 8 }}
-                  >
-                    Edit
-                  </button>
-                  <button type="button" onClick={() => handleDelete(permission.id)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </main>
+      <Stack spacing={3}>
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Table Card */}
+        <Card 
+          sx={{ 
+            borderRadius: '18px', 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Resource</TableCell>
+                  <TableCell>Action</TableCell>
+                  <TableCell>Scope</TableCell>
+                  <TableCell>Permission Key</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {permissions
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((permission, index) => {
+                    const actionColor = getActionColor(permission.action);
+                    const permissionKey = `${permission.resource}.${permission.action}${permission.scope ? '.' + permission.scope : ''}`;
+                    return (
+                      <TableRow 
+                        key={permission.id} 
+                        hover
+                        sx={{
+                          '&:hover': {
+                            bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                          }
+                        }}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {page * rowsPerPage + index + 1}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box
+                              sx={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 2,
+                                bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <SecurityIcon sx={{ fontSize: 18, color: tokens.colors.primary.main }} />
+                            </Box>
+                            <Typography variant="body2" fontWeight={600}>
+                              {permission.resource}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={permission.action} 
+                            size="small"
+                            sx={{
+                              fontWeight: 600,
+                              bgcolor: actionColor.bg,
+                              color: actionColor.color,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {permission.scope ? (
+                            <Chip 
+                              label={permission.scope} 
+                              size="small"
+                              variant="outlined"
+                              sx={{ fontWeight: 500 }}
+                            />
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">-</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontFamily: 'monospace',
+                              bgcolor: tokens.colors.grey[100],
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: 1,
+                              display: 'inline-block',
+                            }}
+                          >
+                            {permissionKey}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                            <Tooltip title="Edit">
+                              <IconButton 
+                                size="small" 
+                                onClick={() => router.push(`/admin/settings/rbac/permissions/${permission.id}`)}
+                                sx={{
+                                  bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                  color: tokens.colors.primary.main,
+                                  '&:hover': {
+                                    bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                                  }
+                                }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete">
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleDelete(permission.id)}
+                                sx={{
+                                  bgcolor: alpha(tokens.colors.error.main, 0.08),
+                                  color: tokens.colors.error.main,
+                                  '&:hover': {
+                                    bgcolor: alpha(tokens.colors.error.main, 0.15),
+                                  }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                {permissions.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <KeyIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No permissions found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          Get started by creating your first permission
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => router.push("/admin/settings/rbac/permissions/new")}
+                          size="small"
+                        >
+                          Add Permission
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {permissions.length > 0 && (
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={permissions.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          )}
+        </Card>
+      </Stack>
+    </Box>
   );
 }

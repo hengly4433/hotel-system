@@ -15,8 +15,11 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
+  alpha,
+  Grid,
 } from "@mui/material";
 import { Visibility, VisibilityOff, Email, Lock, Person } from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -29,10 +32,8 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
 
-    // Mock submission - just delay and redirect
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      // In a real app, you would POST to /api/auth/register here
       router.push("/login");
     } catch {
       setError("Registration failed. Please try again.");
@@ -48,35 +49,58 @@ export default function RegisterPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+        background: `linear-gradient(135deg, ${tokens.colors.grey[100]} 0%, ${tokens.colors.grey[200]} 100%)`,
         p: 2,
       }}
     >
       <Container maxWidth="sm">
-        <Card
-          sx={{
-            boxShadow: "0 8px 40px rgba(0,0,0,0.12)",
-            borderRadius: 4,
-            overflow: "hidden",
-          }}
-        >
-          <Box
+        {/* Logo Section */}
+        <Box sx={{ mb: 4, textAlign: "center" }}>
+          <Box 
             sx={{
-              bgcolor: "primary.main",
-              p: 4,
-              textAlign: "center",
-              color: "white",
+              width: 64, 
+              height: 64, 
+              borderRadius: 3,
+              background: `linear-gradient(135deg, ${tokens.colors.primary.main} 0%, ${tokens.colors.primary.dark} 100%)`,
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              color: 'white', 
+              fontWeight: 800, 
+              fontSize: '2rem',
+              boxShadow: `0 8px 24px ${alpha(tokens.colors.primary.main, 0.3)}`,
+              mx: "auto",
+              mb: 2,
             }}
           >
-            <Typography variant="h4" fontWeight="bold" gutterBottom>
-              Create Account
-            </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
-              Join the team and start managing
-            </Typography>
+            S
           </Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: tokens.colors.grey[900] }}>
+            Sky High Hotel
+          </Typography>
+          <Typography variant="body2" sx={{ color: tokens.colors.grey[500], mt: 0.5, fontWeight: 500, letterSpacing: '1px' }}>
+            CREATE YOUR ACCOUNT
+          </Typography>
+        </Box>
 
-          <CardContent sx={{ p: 4, pt: 6 }}>
+        {/* Register Card */}
+        <Card
+          sx={{
+            boxShadow: `0 8px 32px ${alpha(tokens.colors.grey[900], 0.08)}`,
+            borderRadius: 4,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+          }}
+        >
+          <CardContent sx={{ p: 4 }}>
+            <Box sx={{ mb: 3, textAlign: "center" }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                Join the Team
+              </Typography>
+              <Typography variant="body2" sx={{ color: tokens.colors.grey[500], mt: 0.5 }}>
+                Start managing your hotel today
+              </Typography>
+            </Box>
+
             <form onSubmit={onSubmit}>
               {error && (
                 <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -84,43 +108,42 @@ export default function RegisterPage() {
                 </Alert>
               )}
 
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                  gap: 2,
-                  mb: 3,
-                }}
-              >
-                <TextField
-                  fullWidth
-                  label="First Name"
-                  name="firstName"
-                  required
-                  variant="outlined"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Person color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <TextField
-                  fullWidth
-                  label="Last Name"
-                  name="lastName"
-                  required
-                  variant="outlined"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Person color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Box>
+              <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="First Name"
+                    name="firstName"
+                    required
+                    variant="outlined"
+                    InputLabelProps={{ shrink: true }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Last Name"
+                    name="lastName"
+                    required
+                    variant="outlined"
+                    InputLabelProps={{ shrink: true }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+              </Grid>
 
               <TextField
                 fullWidth
@@ -129,15 +152,15 @@ export default function RegisterPage() {
                 type="email"
                 required
                 variant="outlined"
-                margin="normal"
+                InputLabelProps={{ shrink: true }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Email color="action" />
+                      <Email sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
                     </InputAdornment>
                   ),
                 }}
-                sx={{ mb: 3 }}
+                sx={{ mb: 2.5 }}
               />
 
               <TextField
@@ -147,26 +170,23 @@ export default function RegisterPage() {
                 type={showPassword ? "text" : "password"}
                 required
                 variant="outlined"
-                margin="normal"
+                InputLabelProps={{ shrink: true }}
                 helperText="Must be at least 8 characters"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Lock color="action" />
+                      <Lock sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
                     </InputAdornment>
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                        {showPassword ? <VisibilityOff sx={{ fontSize: 20 }} /> : <Visibility sx={{ fontSize: 20 }} />}
                       </IconButton>
                     </InputAdornment>
                   ),
                 }}
-                sx={{ mb: 4 }}
+                sx={{ mb: 3 }}
               />
 
               <Button
@@ -177,18 +197,18 @@ export default function RegisterPage() {
                 disabled={loading}
                 sx={{
                   py: 1.5,
-                  fontSize: "1.1rem",
+                  fontWeight: 700,
                   textTransform: "none",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.3)}`,
                 }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : "Sign Up"}
+                {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : "Create Account"}
               </Button>
 
               <Box sx={{ mt: 3, textAlign: "center" }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: tokens.colors.grey[500] }}>
                   Already have an account?{" "}
-                  <Link href="/login" underline="hover" fontWeight="bold">
+                  <Link href="/login" underline="none" sx={{ fontWeight: 600, color: tokens.colors.primary.main }}>
                     Sign In
                   </Link>
                 </Typography>
@@ -196,6 +216,13 @@ export default function RegisterPage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Footer */}
+        <Box sx={{ mt: 4, textAlign: "center" }}>
+          <Typography variant="caption" sx={{ color: tokens.colors.grey[400] }}>
+            © {new Date().getFullYear()} Sky High Hotel. All rights reserved.
+          </Typography>
+        </Box>
       </Container>
     </Box>
   );

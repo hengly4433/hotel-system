@@ -10,7 +10,6 @@ import {
   Card,
   CardContent,
   TextField,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -23,9 +22,20 @@ import {
   Typography,
   Stack,
   Grid,
-  TablePagination
+  TablePagination,
+  Collapse,
+  alpha,
+  Autocomplete,
 } from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, FilterList as FilterListIcon } from "@mui/icons-material";
+import { 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Add as AddIcon, 
+  FilterList as FilterListIcon,
+  Close as CloseIcon,
+  AttachMoney as PriceIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 type RatePlan = {
   id: string;
@@ -73,6 +83,9 @@ export default function NightlyPricesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const loadLookups = useCallback(async () => {
     try {
@@ -125,6 +138,22 @@ export default function NightlyPricesPage() {
     return map;
   }, [roomTypes]);
 
+  const selectedRatePlan = useMemo(() => 
+    ratePlans.find(p => p.id === form.ratePlanId) || null,
+  [ratePlans, form.ratePlanId]);
+
+  const selectedRoomType = useMemo(() => 
+    roomTypes.find(t => t.id === form.roomTypeId) || null,
+  [roomTypes, form.roomTypeId]);
+
+  const selectedFilterRatePlan = useMemo(() => 
+    ratePlans.find(p => p.id === filters.ratePlanId) || null,
+  [ratePlans, filters.ratePlanId]);
+
+  const selectedFilterRoomType = useMemo(() => 
+    roomTypes.find(t => t.id === filters.roomTypeId) || null,
+  [roomTypes, filters.roomTypeId]);
+
   function startEdit(price: RatePlanPrice) {
     setEditingId(price.id);
     setForm({
@@ -134,11 +163,13 @@ export default function NightlyPricesPage() {
       price: String(price.price),
       currency: price.currency
     });
+    setShowForm(true);
   }
 
   function resetForm() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setShowForm(false);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -185,253 +216,395 @@ export default function NightlyPricesPage() {
     }
   }
 
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
   return (
-    <main>
-      <PageHeader title="Nightly Prices" subtitle="Manage nightly rate plan prices" />
+    <Box component="main">
+      <PageHeader 
+        title="Nightly Prices" 
+        subtitle="Manage nightly rate plan prices"
+        action={
+          !showForm ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setShowForm(true)}
+              sx={{
+                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+              }}
+            >
+              New Price
+            </Button>
+          ) : null
+        }
+      />
       
       <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                    Filters
-                </Typography>
-                <Grid container spacing={2} alignItems="flex-end">
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <TextField
-                            select
-                            label="Rate Plan"
-                            value={filters.ratePlanId}
-                            onChange={(e) => setFilters({ ...filters, ratePlanId: e.target.value })}
-                            fullWidth
-                            size="small"
-                        >
-                            <MenuItem value="">All</MenuItem>
-                            {ratePlans.map((plan) => (
-                                <MenuItem key={plan.id} value={plan.id}>
-                                    {plan.code} — {plan.name}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 3 }}>
-                         <TextField
-                            select
-                            label="Room Type"
-                            value={filters.roomTypeId}
-                            onChange={(e) => setFilters({ ...filters, roomTypeId: e.target.value })}
-                            fullWidth
-                            size="small"
-                        >
-                            <MenuItem value="">All</MenuItem>
-                            {roomTypes.map((type) => (
-                                <MenuItem key={type.id} value={type.id}>
-                                    {type.name}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 2 }}>
-                        <TextField
-                            type="date"
-                            label="From"
-                            value={filters.from}
-                            onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-                            fullWidth
-                            size="small"
-                            InputLabelProps={{ shrink: true }}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 2 }}>
-                        <TextField
-                            type="date"
-                            label="To"
-                            value={filters.to}
-                            onChange={(e) => setFilters({ ...filters, to: e.target.value })}
-                            fullWidth
-                            size="small"
-                            InputLabelProps={{ shrink: true }}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 2 }}>
-                        <Button 
-                            variant="outlined" 
-                            onClick={loadPrices} 
-                            fullWidth 
-                            startIcon={<FilterListIcon />}
-                        >
-                            Apply
-                        </Button>
-                    </Grid>
-                </Grid>
-            </CardContent>
+        {/* Filters Card */}
+        <Card 
+          sx={{ 
+            borderRadius: 3, 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+          }}
+        >
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom>
+              Filters
+            </Typography>
+            <Grid container spacing={2} alignItems="flex-end">
+              <Grid size={{ xs: 12, md: 3 }}>
+                <Autocomplete
+                  options={ratePlans}
+                  getOptionLabel={(option) => `${option.code} — ${option.name}`}
+                  value={selectedFilterRatePlan}
+                  onChange={(_, newValue) => {
+                    setFilters({ ...filters, ratePlanId: newValue?.id || "" });
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Rate Plan"
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <Autocomplete
+                  options={roomTypes}
+                  getOptionLabel={(option) => option.name}
+                  value={selectedFilterRoomType}
+                  onChange={(_, newValue) => {
+                    setFilters({ ...filters, roomTypeId: newValue?.id || "" });
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Room Type"
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 2 }}>
+                <TextField
+                  type="date"
+                  label="From"
+                  value={filters.from}
+                  onChange={(e) => setFilters({ ...filters, from: e.target.value })}
+                  fullWidth
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 2 }}>
+                <TextField
+                  type="date"
+                  label="To"
+                  value={filters.to}
+                  onChange={(e) => setFilters({ ...filters, to: e.target.value })}
+                  fullWidth
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 2 }}>
+                <Button 
+                  variant="outlined" 
+                  onClick={loadPrices} 
+                  fullWidth 
+                  startIcon={<FilterListIcon />}
+                >
+                  Apply
+                </Button>
+              </Grid>
+            </Grid>
+          </CardContent>
         </Card>
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+        {/* Collapsible Form */}
+        <Collapse in={showForm}>
+          <Card 
+            sx={{ 
+              borderRadius: 3, 
+              boxShadow: tokens.shadows.card,
+              border: `1px solid ${tokens.colors.grey[200]}`,
+            }}
+          >
             <CardContent sx={{ p: 4 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                    {editingId ? "Edit Price" : "Create Price"}
-                </Typography>
-                
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-                    <Grid container spacing={3}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Rate Plan"
-                                value={form.ratePlanId}
-                                onChange={(e) => setForm({ ...form, ratePlanId: e.target.value })}
-                                required
-                                fullWidth
-                            >
-                                <MenuItem value="">Select</MenuItem>
-                                {ratePlans.map((plan) => (
-                                <MenuItem key={plan.id} value={plan.id}>
-                                    {plan.code} — {plan.name}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Room Type"
-                                value={form.roomTypeId}
-                                onChange={(e) => setForm({ ...form, roomTypeId: e.target.value })}
-                                required
-                                fullWidth
-                            >
-                                <MenuItem value="">Select</MenuItem>
-                                {roomTypes.map((type) => (
-                                <MenuItem key={type.id} value={type.id}>
-                                    {type.name}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        
-                        <Grid size={{ xs: 12, md: 4 }}>
-                            <TextField
-                                type="date"
-                                label="Date"
-                                value={form.date}
-                                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                                required
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 4 }}>
-                            <TextField
-                                type="number"
-                                label="Price"
-                                value={form.price}
-                                onChange={(e) => setForm({ ...form, price: e.target.value })}
-                                required
-                                fullWidth
-                                inputProps={{ step: "0.01" }}
-                            />
-                        </Grid>
-                         <Grid size={{ xs: 12, md: 4 }}>
-                            <TextField
-                                label="Currency"
-                                value={form.currency}
-                                onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                                fullWidth
-                            />
-                        </Grid>
-
-                         <Grid size={{ xs: 12 }}>
-                             <Stack direction="row" spacing={2} justifyContent="flex-end">
-                                <Button 
-                                    type="submit" 
-                                    variant="contained" 
-                                    disabled={loading}
-                                    startIcon={!editingId && !loading && <AddIcon />}
-                                >
-                                    {loading ? "Saving..." : editingId ? "Update" : "Create"}
-                                </Button>
-                                {editingId && (
-                                    <Button variant="outlined" onClick={resetForm}>
-                                        Cancel
-                                    </Button>
-                                )}
-                            </Stack>
-                        </Grid>
-                    </Grid>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 4,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 3,
+                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <PriceIcon sx={{ color: tokens.colors.primary.main }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight="bold">
+                      {editingId ? "Edit Price" : "Create New Price"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {editingId ? "Update nightly price" : "Add a new nightly rate"}
+                    </Typography>
+                  </Box>
                 </Box>
-            </CardContent>
-        </Card>
+                <IconButton 
+                  onClick={resetForm} 
+                  size="small"
+                  sx={{
+                    bgcolor: tokens.colors.grey[100],
+                    '&:hover': { bgcolor: tokens.colors.grey[200] }
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <TableContainer component={Paper} elevation={0}>
-                <Table>
-                <TableHead sx={{ bgcolor: "#f8fafc" }}>
-                    <TableRow>
-                    <TableCell sx={{ fontWeight: "bold", width: 60 }}>No</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Rate Plan</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Room Type</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Price</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold" }}>Actions</TableCell>
+              <Box component="form" onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Autocomplete
+                      options={ratePlans}
+                      getOptionLabel={(option) => `${option.code} — ${option.name}`}
+                      value={selectedRatePlan}
+                      onChange={(_, newValue) => {
+                        setForm({ ...form, ratePlanId: newValue?.id || "" });
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Rate Plan"
+                          required
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      )}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Autocomplete
+                      options={roomTypes}
+                      getOptionLabel={(option) => option.name}
+                      value={selectedRoomType}
+                      onChange={(_, newValue) => {
+                        setForm({ ...form, roomTypeId: newValue?.id || "" });
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Room Type"
+                          required
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      )}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                    />
+                  </Grid>
+                  
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      type="date"
+                      label="Date"
+                      value={form.date}
+                      onChange={(e) => setForm({ ...form, date: e.target.value })}
+                      required
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      type="number"
+                      label="Price"
+                      value={form.price}
+                      onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      required
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      inputProps={{ step: "0.01" }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      label="Currency"
+                      value={form.currency}
+                      onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12 }}>
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                      <Button variant="outlined" onClick={resetForm}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        variant="contained" 
+                        disabled={loading}
+                        sx={{
+                          boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+                        }}
+                      >
+                        {loading ? "Saving..." : editingId ? "Update Price" : "Create Price"}
+                      </Button>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Box>
+            </CardContent>
+          </Card>
+        </Collapse>
+
+        {/* Table */}
+        <Card 
+          sx={{ 
+            borderRadius: 3, 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Rate Plan</TableCell>
+                  <TableCell>Room Type</TableCell>
+                  <TableCell>Price</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {prices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <PriceIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No prices found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          Create your first nightly price
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => setShowForm(true)}
+                          size="small"
+                        >
+                          Add Price
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  prices
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((price, index) => (
+                    <TableRow 
+                      key={price.id} 
+                      hover
+                      sx={{
+                        '&:hover': {
+                          bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {page * rowsPerPage + index + 1}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{price.date}</TableCell>
+                      <TableCell>{ratePlanMap.get(price.ratePlanId) || price.ratePlanId}</TableCell>
+                      <TableCell>{roomTypeMap.get(price.roomTypeId) || price.roomTypeId}</TableCell>
+                      <TableCell>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontWeight: 600,
+                            color: tokens.colors.primary.main,
+                          }}
+                        >
+                          {price.price} {price.currency}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => startEdit(price)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                              color: tokens.colors.primary.main,
+                              '&:hover': { bgcolor: alpha(tokens.colors.primary.main, 0.15) }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDelete(price.id)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.error.main, 0.08),
+                              color: tokens.colors.error.main,
+                              '&:hover': { bgcolor: alpha(tokens.colors.error.main, 0.15) }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      </TableCell>
                     </TableRow>
-                </TableHead>
-                <TableBody>
-                    {prices
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((price, index) => (
-                    <TableRow key={price.id} hover>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>{price.date}</TableCell>
-                        <TableCell>{ratePlanMap.get(price.ratePlanId) || price.ratePlanId}</TableCell>
-                        <TableCell>{roomTypeMap.get(price.roomTypeId) || price.roomTypeId}</TableCell>
-                        <TableCell>
-                            {price.price} {price.currency}
-                        </TableCell>
-                        <TableCell align="right">
-                        <IconButton size="small" onClick={() => startEdit(price)} color="primary">
-                            <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(price.id)} color="error">
-                            <DeleteIcon />
-                        </IconButton>
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                    {prices.length === 0 && (
-                     <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                            No prices found
-                        </TableCell>
-                     </TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </TableContainer>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {prices.length > 0 && (
             <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={prices.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={prices.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
             />
+          )}
         </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

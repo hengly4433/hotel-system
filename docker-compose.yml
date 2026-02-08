@@ -1,49 +1,49 @@
-services:
-  postgres:
-    image: postgres:16
-    container_name: hotel-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: blockcode
-      POSTGRES_PASSWORD: Password@123
-      POSTGRES_DB: hotel_system
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - hotel-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U blockcode -d hotel_system"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+version: "3.9"
 
+services:
   backend:
     container_name: hotel-backend
     build:
       context: .
       dockerfile: backend/Dockerfile
-      target: builder
+      target: builder   # uses gradle:jdk21 stage (good for bootRun)
     restart: unless-stopped
+    working_dir: /home/gradle/project
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     ports:
       - "8080:8080"
     volumes:
-      - ./backend:/home/gradle/project
-      - ./db:/home/gradle/db
-    command: gradle bootRun
+      # Source code (bind mount)
+      - ./backend:/home/gradle/project:delegated
+
+      # Migrations (bind mount)
+      - ./db:/home/gradle/db:delegated
+
+      # Keep Gradle cache inside Docker (faster, less host churn)
+      - gradle_cache:/home/gradle/.gradle
+
+      # Keep build output inside Docker (prevents huge bind-mount I/O)
+      - backend_build:/home/gradle/project/build
+
+    # Disable Gradle FS watching to reduce macOS watcher overhead
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hotel_system
+      GRADLE_OPTS: "-Dorg.gradle.vfs.watch=false"
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/hotel_system
       SPRING_DATASOURCE_USERNAME: blockcode
       SPRING_DATASOURCE_PASSWORD: Password@123
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+
       APP_AUTH_GOOGLE_CLIENT_ID: ${APP_AUTH_GOOGLE_CLIENT_ID:-}
       APP_AUTH_GOOGLE_CLIENT_SECRET: ${APP_AUTH_GOOGLE_CLIENT_SECRET:-}
       APP_AUTH_GOOGLE_REDIRECT_URI: ${APP_AUTH_GOOGLE_REDIRECT_URI:-}
       APP_STOREFRONT_BASE_URL: ${APP_STOREFRONT_BASE_URL:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
+
+    command: gradle --no-daemon bootRun
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - hotel-network
 
@@ -52,47 +52,80 @@ services:
     build:
       context: .
       dockerfile: apps/admin/Dockerfile
-      target: deps
+      target: deps       # matches your Dockerfile stage that runs `npm ci`
     restart: unless-stopped
+    working_dir: /app
     ports:
       - "3000:3000"
     volumes:
-      - ./apps/admin:/app/apps/admin
-      - ./shared:/app/shared
-    command: npm run dev --workspace=apps/admin
+      # Mount only the app + shared (avoid mounting repo root on macOS)
+      - ./apps/admin:/app/apps/admin:delegated
+      - ./shared:/app/shared:delegated
+
+      # Keep heavy-churn dirs inside Docker volumes (major macOS performance win)
+      - admin_node_modules:/app/node_modules
+      - admin_next_cache:/app/apps/admin/.next
+
     environment:
-      BACKEND_BASE_URL: http://backend:8080
       NODE_ENV: development
+      BACKEND_BASE_URL: http://backend:8080
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
-    networks:
-      - hotel-network
+
+      # Watcher controls (prevents runaway CPU)
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
+      WATCHPACK_POLLING: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    # Ensure Next binds to all interfaces inside container
+    command: npm run dev --workspace=apps/admin -- --port 3000 --hostname 0.0.0.0
     depends_on:
       - backend
+    networks:
+      - hotel-network
 
   storefront:
     container_name: hotel-storefront
     build:
       context: .
       dockerfile: apps/storefront/Dockerfile
-      target: deps
+      target: deps       # matches your Dockerfile stage that runs `npm ci`
     restart: unless-stopped
+    working_dir: /app
     ports:
       - "3001:3000"
     volumes:
-      - ./apps/storefront:/app/apps/storefront
-      - ./shared:/app/shared
-    command: npm run dev --workspace=apps/storefront
+      - ./apps/storefront:/app/apps/storefront:delegated
+      - ./shared:/app/shared:delegated
+
+      # Heavy-churn dirs inside Docker
+      - storefront_node_modules:/app/node_modules
+      - storefront_next_cache:/app/apps/storefront/.next
+
     environment:
-      BACKEND_BASE_URL: http://backend:8080
       NODE_ENV: development
-    networks:
-      - hotel-network
+      BACKEND_BASE_URL: http://backend:8080
+
+      # Watcher controls
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
+      WATCHPACK_POLLING: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    command: npm run dev --workspace=apps/storefront -- --port 3000 --hostname 0.0.0.0
     depends_on:
       - backend
-
-volumes:
-  postgres_data:
+    networks:
+      - hotel-network
 
 networks:
   hotel-network:
     driver: bridge
+
+volumes:
+  gradle_cache:
+  backend_build:
+  admin_node_modules:
+  admin_next_cache:
+  storefront_node_modules:
+  storefront_next_cache:

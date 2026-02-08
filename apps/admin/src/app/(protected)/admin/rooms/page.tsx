@@ -7,75 +7,47 @@ import { getErrorMessage } from "@/lib/api/errors";
 import {
   Box,
   Button,
-  Card,
-  CardContent,
-  FormControlLabel,
-  Checkbox,
-  TextField,
-  MenuItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  IconButton,
   Alert,
-  Typography,
   Stack,
-  TableContainer,
-  Paper,
-  TablePagination
-} from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from "@mui/icons-material";
-
-type Room = {
-  id: string;
-  propertyId: string;
-  roomNumber: string;
-  roomTypeId: string;
-  floor: string | null;
-  housekeepingZone: string | null;
-  isActive: boolean;
-};
-
-type Property = {
-  id: string;
-  name: string;
-};
-
-type RoomType = {
-  id: string;
-  name: string;
-  propertyId: string;
-};
-
-const EMPTY_FORM = {
-  propertyId: "",
-  roomNumber: "",
-  roomTypeId: "",
-  floor: "",
-  housekeepingZone: "",
-  isActive: true
-};
+  Fade,
+  alpha
+} from "@mui/material"; 
+import { Add as AddIcon } from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
+import RoomListTable from "./RoomListTable";
+import RoomForm from "./RoomForm";
+import { Room } from "./types";
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [roomTypes, setRoomTypes] = useState<Array<{ id: string; name: string; propertyId: string }>>([]);
+  const [properties, setProperties] = useState<Array<{ id: string; name: string }>>([]);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const loadData = useCallback(async () => {
     try {
-      const [roomsData, typesData, propertiesData] = await Promise.all([
+      const [roomsData, types, props] = await Promise.all([
         apiJson<Room[]>("rooms"),
-        apiJson<RoomType[]>("room-types"),
-        apiJson<Property[]>("properties")
+        apiJson<Array<{ id: string; name: string; propertyId: string }>>("room-types"),
+        apiJson<Array<{ id: string; name: string }>>("properties")
       ]);
       setRooms(roomsData);
-      setRoomTypes(typesData);
-      setProperties(propertiesData);
+      setRoomTypes(types);
+      setProperties(props);
       setError(null);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -90,38 +62,39 @@ export default function RoomsPage() {
   }, [loadData]);
 
   function startEdit(room: Room) {
-    setEditingId(room.id);
-    setForm({
-      propertyId: room.propertyId,
-      roomNumber: room.roomNumber,
-      roomTypeId: room.roomTypeId,
-      floor: room.floor || "",
-      housekeepingZone: room.housekeepingZone || "",
-      isActive: room.isActive
-    });
+    setEditingRoom(room);
+    setShowForm(true);
+  }
+
+  function startAdd() {
+    setEditingRoom(null);
+    setShowForm(true);
   }
 
   function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
+    setEditingRoom(null);
+    setShowForm(false);
+    setError(null);
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleSubmit(data: any) {
     setError(null);
+    setIsSubmitting(true);
 
     const payload = {
-      propertyId: form.propertyId,
-      roomNumber: form.roomNumber,
-      roomTypeId: form.roomTypeId,
-      floor: form.floor || null,
-      housekeepingZone: form.housekeepingZone || null,
-      isActive: form.isActive
+      roomNumber: data.roomNumber,
+      roomTypeId: data.roomTypeId,
+      propertyId: data.propertyId,
+      floorNumber: data.floorNumber,
+      description: data.description,
+      isActive: data.isActive,
+      profileImage: data.profileImage,
+      galleryImages: data.galleryImages
     };
 
     try {
-      if (editingId) {
-        await apiJson(`rooms/${editingId}`, {
+      if (editingRoom) {
+        await apiJson(`rooms/${editingRoom.id}`, {
           method: "PUT",
           body: JSON.stringify(payload)
         });
@@ -135,6 +108,8 @@ export default function RoomsPage() {
       resetForm();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
@@ -148,195 +123,81 @@ export default function RoomsPage() {
     }
   }
 
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  function getRoomTypeName(id: string) {
+    const type = roomTypes.find((t) => t.id === id);
+    return type?.name || "Unknown";
+  }
 
-  const visibleRoomTypes = form.propertyId
-    ? roomTypes.filter((type) => type.propertyId === form.propertyId)
-    : roomTypes;
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  function getPropertyName(id: string) {
+    const property = properties.find((p) => p.id === id);
+    return property?.name || "Unknown";
+  }
 
   return (
-    <main>
-      <PageHeader title="Rooms" subtitle="Manage inventory" />
-      
+    <Box component="main">
+      <PageHeader
+        title="Rooms"
+        subtitle="Manage room inventory and availability"
+        // Action button is now handled within the Table empty state or via condition, 
+        // but typically standard actions are top-right.
+        // We can keep it here OR inside the table. The user request was "separate for Room creation".
+        // Let's keep it clean: if showing form, no header action. If showing list, maybe header action?
+        // Actually the previous design had it. Let's keep it consistent.
+        action={
+          !showForm ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={startAdd}
+              sx={{
+                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+              }}
+            >
+              New Room
+            </Button>
+          ) : null
+        } 
+      />
+
       <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-        <Card sx={{ boxShadow: "0 4px 24px rgba(0,0,0,0.08)", borderRadius: 3 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              {editingId ? "Edit Room" : "Create Room"}
-            </Typography>
-            
-            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }}>
-                <TextField
-                  select
-                  label="Property"
-                  value={form.propertyId}
-                  onChange={(e) => setForm({ ...form, propertyId: e.target.value })}
-                  required
-                  fullWidth
-                >
-                  <MenuItem value="">Select</MenuItem>
-                  {properties.map((property) => (
-                    <MenuItem key={property.id} value={property.id}>
-                      {property.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                
-                <TextField
-                  label="Room Number"
-                  value={form.roomNumber}
-                  onChange={(e) => setForm({ ...form, roomNumber: e.target.value })}
-                  required
-                  fullWidth
+        {showForm ? (
+          <Fade in={showForm}>
+            <Box>
+                <RoomForm
+                    initialData={editingRoom}
+                    properties={properties}
+                    roomTypes={roomTypes}
+                    onSubmit={handleSubmit}
+                    onCancel={resetForm}
+                    isSubmitting={isSubmitting}
                 />
-                
-                <TextField
-                  select
-                  label="Room Type"
-                  value={form.roomTypeId}
-                  onChange={(e) => setForm({ ...form, roomTypeId: e.target.value })}
-                  required
-                  fullWidth
-                >
-                  <MenuItem value="">Select</MenuItem>
-                  {visibleRoomTypes.map((type) => (
-                    <MenuItem key={type.id} value={type.id}>
-                      {type.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Stack>
-              
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }}>
-                <TextField
-                  label="Floor"
-                  value={form.floor}
-                  onChange={(e) => setForm({ ...form, floor: e.target.value })}
-                  fullWidth
-                />
-                
-                <TextField
-                  label="Housekeeping Zone"
-                  value={form.housekeepingZone}
-                  onChange={(e) => setForm({ ...form, housekeepingZone: e.target.value })}
-                  fullWidth
-                />
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 200 }}>
-                    <FormControlLabel
-                        control={
-                        <Checkbox
-                            checked={form.isActive}
-                            onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                        />
-                        }
-                        label="Active"
-                    />
-                </Box>
-              </Stack>
-
-              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                <Button 
-                    type="submit" 
-                    variant="contained" 
-                    startIcon={!editingId && <AddIcon />}
-                >
-                  {editingId ? "Update Room" : "Create Room"}
-                </Button>
-                {editingId && (
-                  <Button variant="outlined" onClick={resetForm}>
-                    Cancel
-                  </Button>
-                )}
-              </Stack>
             </Box>
-          </CardContent>
-        </Card>
-
-        <Card sx={{ boxShadow: "0 4px 24px rgba(0,0,0,0.08)", borderRadius: 3 }}>
-          <CardContent sx={{ p: 0 }}>
-            <TableContainer component={Paper} elevation={0}>
-              <Table>
-                <TableHead sx={{ bgcolor: "#f8fafc" }}>
-                  <TableRow>
-                     <TableCell sx={{ fontWeight: "bold", width: 60 }}>No</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Room</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Property</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Type</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Active</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold" }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rooms
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((room, index) => (
-                    <TableRow key={room.id} hover>
-                       <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                      <TableCell>{room.roomNumber}</TableCell>
-                      <TableCell>{properties.find((p) => p.id === room.propertyId)?.name || room.propertyId}</TableCell>
-                      <TableCell>{roomTypes.find((t) => t.id === room.roomTypeId)?.name || room.roomTypeId}</TableCell>
-                      <TableCell>
-                        <Box 
-                            sx={{ 
-                                px: 1, 
-                                py: 0.5, 
-                                bgcolor: room.isActive ? "#dcfce7" : "#f1f5f9", 
-                                color: room.isActive ? "#166534" : "#64748b",
-                                borderRadius: 1,
-                                display: 'inline-block',
-                                fontSize: '0.75rem',
-                                fontWeight: 'bold'
-                            }}
-                        >
-                            {room.isActive ? "Yes" : "No"}
-                        </Box>
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={() => startEdit(room)} color="primary">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(room.id)} color="error">
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {rooms.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                        No rooms found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={rooms.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </CardContent>
-        </Card>
+          </Fade>
+        ) : (
+          <Fade in={!showForm}>
+            <Box>
+                <RoomListTable
+                    rooms={rooms}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={handleChangePage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                    onEdit={startEdit}
+                    onDelete={handleDelete}
+                    getRoomTypeName={getRoomTypeName}
+                    getPropertyName={getPropertyName}
+                    onAddClick={startAdd}
+                />
+            </Box>
+          </Fade>
+        )}
       </Stack>
-    </main>
+    </Box>
   );
 }

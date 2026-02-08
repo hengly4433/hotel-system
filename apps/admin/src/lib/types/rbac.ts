@@ -33,6 +33,7 @@ export type RbacUser = {
   status: "ACTIVE" | "SUSPENDED";
   propertyId?: string | null;
   roleIds?: string[];
+  roleNames?: string[];
 };
 
 export type PermissionGroup = {
