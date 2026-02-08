@@ -22,13 +22,23 @@ services:
     rootDir: . # Context must be root to access db/ folder
     dockerfilePath: backend/Dockerfile
     envVars:
-      - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://${hotel-db.host}:${hotel-db.port}/${hotel-db.databaseName}
-      - key: SPRING_DATASOURCE_USERNAME
+      - key: DB_HOST
+        fromDatabase:
+          name: hotel-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: hotel-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: hotel-db
+          property: databaseName
+      - key: DB_USER
         fromDatabase:
           name: hotel-db
           property: user
-      - key: SPRING_DATASOURCE_PASSWORD
+      - key: DB_PASSWORD
         fromDatabase:
           name: hotel-db
           property: password

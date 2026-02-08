@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/hotel_system
-    username: blockcode
-    password: Password@123
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hotel_system}
+    username: ${DB_USER:blockcode}
+    password: ${DB_PASSWORD:Password@123}
   jpa:
     open-in-view: false
     hibernate:
