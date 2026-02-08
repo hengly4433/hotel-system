@@ -8,7 +8,9 @@ async function handler(
   context: { params: Promise<{ path?: string[] }> }
 ) {
   let base = process.env.BACKEND_BASE_URL;
-  if (base && !base.startsWith("http")) {
+  if (base && !base.includes(".")) {
+    base = `https://${base}.onrender.com`;
+  } else if (base && !base.startsWith("http")) {
     base = `https://${base}`;
   }
   const prefix = process.env.BACKEND_API_PREFIX || "/api/v1";

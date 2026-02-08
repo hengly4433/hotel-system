@@ -7,7 +7,9 @@ export async function POST(req: Request) {
   const { email, password } = await req.json();
 
   let base = process.env.BACKEND_BASE_URL;
-  if (base && !base.startsWith("http")) {
+  if (base && !base.includes(".")) {
+    base = `https://${base}.onrender.com`;
+  } else if (base && !base.startsWith("http")) {
     base = `https://${base}`;
   }
   console.log("DEBUG: Using BACKEND_BASE_URL:", base);

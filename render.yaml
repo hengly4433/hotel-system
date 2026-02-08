@@ -70,7 +70,7 @@ services:
         fromService:
           type: web
           name: hotel-backend
-          property: url
+          property: host
       - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
         sync: false # User must input
 
@@ -89,7 +89,7 @@ services:
         fromService:
           type: web
           name: hotel-backend
-          property: url
+          property: host
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false # User must input
       - key: NEXT_PUBLIC_SUPABASE_KEY
