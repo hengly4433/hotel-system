@@ -7,7 +7,10 @@ async function handler(
   req: NextRequest,
   context: { params: Promise<{ path?: string[] }> }
 ) {
-  const base = process.env.BACKEND_BASE_URL;
+  let base = process.env.BACKEND_BASE_URL;
+  if (base && !base.startsWith("http")) {
+    base = `https://${base}`;
+  }
   const prefix = process.env.BACKEND_API_PREFIX || "/api/v1";
 
   if (!base) {

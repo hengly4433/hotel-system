@@ -6,7 +6,10 @@ const SECURE = (process.env.AUTH_COOKIE_SECURE || "false") === "true";
 export async function POST(req: Request) {
   const { email, password } = await req.json();
 
-  const base = process.env.BACKEND_BASE_URL;
+  let base = process.env.BACKEND_BASE_URL;
+  if (base && !base.startsWith("http")) {
+    base = `https://${base}`;
+  }
   const prefix = process.env.BACKEND_API_PREFIX || "/api/v1";
 
   if (!base) {

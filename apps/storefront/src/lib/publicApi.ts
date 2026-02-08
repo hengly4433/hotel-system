@@ -1,5 +1,8 @@
 export async function publicApi<T>(path: string) {
-  const base = process.env.BACKEND_BASE_URL || "http://localhost:8080";
+  let base = process.env.BACKEND_BASE_URL || "http://localhost:8080";
+  if (!base.startsWith("http")) {
+    base = `https://${base}`;
+  }
   const prefix = process.env.BACKEND_API_PREFIX || "/api/v1";
 
   const url = `${base}${prefix}${path.startsWith("/") ? path : `/${path}`}`;
