@@ -10,6 +10,7 @@ export async function POST(req: Request) {
   if (base && !base.startsWith("http")) {
     base = `https://${base}`;
   }
+  console.log("DEBUG: Using BACKEND_BASE_URL:", base);
   const prefix = process.env.BACKEND_API_PREFIX || "/api/v1";
 
   if (!base) {
