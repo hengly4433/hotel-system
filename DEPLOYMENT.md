@@ -107,3 +107,31 @@ We will deploy both the database and the backend on Render.
 3.  **Root Directory:** Edit this -> Select `apps/storefront`.
 4.  **Environment Variables:** Copy from `apps/storefront/.env`.
     - `BACKEND_BASE_URL`: The URL of your deployed backend.
+
+---
+
+## 3. Automated Deployment (Render Blueprint)
+
+We have added a `render.yaml` file to the repository. This allows you to deploy the **Database**, **Backend**, **Admin**, and **Storefront** all at once on Render.
+
+### Steps:
+
+1.  Log in to [Render](https://render.com/).
+2.  Click **New +** -> **Blueprint**.
+3.  Connect your repository (`hengly4433/hotel-system`).
+4.  Render will read the `render.yaml` file and show you the services it will create:
+    - `hotel-db` (PostgreSQL)
+    - `hotel-backend` (Docker)
+    - `hotel-admin` (Docker)
+    - `hotel-storefront` (Docker)
+5.  **Fill in the Environment Variables:**
+    Render will ask for values that cannot be auto-generated. You must provide:
+    - `APP_AUTH_GOOGLE_CLIENT_ID`
+    - `APP_AUTH_GOOGLE_CLIENT_SECRET`
+    - `NEXT_PUBLIC_SUPABASE_URL`
+    - `NEXT_PUBLIC_SUPABASE_KEY`
+    - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+6.  Click **Apply Blueprint**.
+7.  Wait for deployment to finish.
+
+> **Note:** If you prefer Vercel for frontends (recommended for performance), you can delete the `hotel-admin` and `hotel-storefront` sections from `render.yaml` before deploying, or simply delete those services from the Render dashboard after they are created.
