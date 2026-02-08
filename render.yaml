@@ -23,9 +23,8 @@ services:
     dockerfilePath: backend/Dockerfile
     envVars:
       - key: SPRING_DATASOURCE_URL
-        fromDatabase:
-          name: hotel-db
-          property: connectionString
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://${hotel-db.host}:${hotel-db.port}/${hotel-db.databaseName}
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: hotel-db
