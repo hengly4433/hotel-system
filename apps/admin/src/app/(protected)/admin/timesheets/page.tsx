@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -8,9 +9,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
-  TextField,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -22,18 +20,14 @@ import {
   Alert,
   Typography,
   Stack,
-  Grid,
   Chip,
   TablePagination,
-  Collapse,
   alpha,
-  Autocomplete,
 } from "@mui/material";
 import { 
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   Add as AddIcon, 
-  Close as CloseIcon,
   Schedule as TimesheetIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
@@ -64,53 +58,15 @@ type Timesheet = {
   notes: string | null;
 };
 
-const STATUSES = ["OPEN", "SUBMITTED", "APPROVED", "REJECTED"] as const;
-const SHIFTS = ["AM", "PM", "NIGHT"] as const;
-
-const EMPTY_FORM = {
-  propertyId: "",
-  employeeId: "",
-  workDate: "",
-  shift: "AM",
-  clockIn: "",
-  clockOut: "",
-  breakMinutes: "0",
-  status: "OPEN",
-  notes: ""
-};
-
-function toDateTimeInput(value: string | null) {
-  if (!value) return "";
-  try {
-    return new Date(value).toISOString().slice(0, 16);
-  } catch {
-    return "";
-  }
-}
-
-function toIsoOrNull(value: string) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
-}
-
 export default function TimesheetsPage() {
+  const router = useRouter();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const employeesForProperty = useMemo(() => {
-    if (!selectedPropertyId) return employees;
-    return employees.filter((employee) => employee.propertyId === selectedPropertyId);
-  }, [employees, selectedPropertyId]);
 
   const loadLookups = useCallback(async () => {
     try {
@@ -122,7 +78,6 @@ export default function TimesheetsPage() {
       setEmployees(employeesData);
       if (!selectedPropertyId && propertiesData.length > 0) {
         setSelectedPropertyId(propertiesData[0].id);
-        setForm((prev) => ({ ...prev, propertyId: propertiesData[0].id }));
       }
       setError(null);
     } catch (err) {
@@ -159,73 +114,10 @@ export default function TimesheetsPage() {
     return () => clearTimeout(timer);
   }, [loadTimesheets, selectedPropertyId]);
 
-  const selectedProperty = useMemo(() => 
-    properties.find(p => p.id === form.propertyId) || null,
-  [properties, form.propertyId]);
-
-  const selectedEmployee = useMemo(() => 
-    employees.find(e => e.id === form.employeeId) || null,
-  [employees, form.employeeId]);
-
-  function resetForm() {
-    setEditingId(null);
-    setForm((prev) => ({
-      ...EMPTY_FORM,
-      propertyId: prev.propertyId || selectedPropertyId
-    }));
-    setShowForm(false);
-  }
-
-  function startEdit(timesheet: Timesheet) {
-    setEditingId(timesheet.id);
-    setForm({
-      propertyId: timesheet.propertyId,
-      employeeId: timesheet.employeeId,
-      workDate: timesheet.workDate,
-      shift: timesheet.shift,
-      clockIn: toDateTimeInput(timesheet.clockIn),
-      clockOut: toDateTimeInput(timesheet.clockOut),
-      breakMinutes: String(timesheet.breakMinutes ?? 0),
-      status: timesheet.status || "OPEN",
-      notes: timesheet.notes || ""
-    });
-    setShowForm(true);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    const payload = {
-      propertyId: form.propertyId,
-      employeeId: form.employeeId,
-      workDate: form.workDate,
-      shift: form.shift,
-      clockIn: toIsoOrNull(form.clockIn),
-      clockOut: toIsoOrNull(form.clockOut),
-      breakMinutes: form.breakMinutes ? Number(form.breakMinutes) : 0,
-      status: form.status,
-      notes: form.notes || null
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`timesheets/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("timesheets", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-      await loadTimesheets(form.propertyId);
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
+  const selectedProperty = useMemo(
+    () => properties.find((p) => p.id === selectedPropertyId) || null,
+    [properties, selectedPropertyId]
+  );
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this timesheet?")) return;
@@ -258,18 +150,16 @@ export default function TimesheetsPage() {
         title="Timesheets" 
         subtitle="Track employee shifts and hours"
         action={
-          !showForm ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setShowForm(true)}
-              sx={{
-                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-              }}
-            >
-              New Timesheet
-            </Button>
-          ) : null
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/timesheets/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Timesheet
+          </Button>
         }
       />
       
@@ -279,213 +169,6 @@ export default function TimesheetsPage() {
             {error}
           </Alert>
         )}
-
-        {/* Collapsible Form */}
-        <Collapse in={showForm}>
-          <Card 
-            sx={{ 
-              borderRadius: 3, 
-              boxShadow: tokens.shadows.card,
-              border: `1px solid ${tokens.colors.grey[200]}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 4,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <TimesheetIcon sx={{ color: tokens.colors.primary.main }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      {editingId ? "Edit Timesheet" : "Create New Timesheet"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {editingId ? "Update timesheet details" : "Add a new time entry"}
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton 
-                  onClick={resetForm} 
-                  size="small"
-                  sx={{
-                    bgcolor: tokens.colors.grey[100],
-                    '&:hover': { bgcolor: tokens.colors.grey[200] }
-                  }}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
-
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      options={properties}
-                      getOptionLabel={(option) => option.name}
-                      value={selectedProperty}
-                      onChange={(_, newValue) => {
-                        const newPropertyId = newValue?.id || "";
-                        setForm({ ...form, propertyId: newPropertyId, employeeId: "" });
-                        setSelectedPropertyId(newPropertyId);
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Property"
-                          required
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      )}
-                      isOptionEqualToValue={(option, value) => option.id === value.id}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      options={employeesForProperty}
-                      getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
-                      value={selectedEmployee}
-                      onChange={(_, newValue) => {
-                        setForm({ ...form, employeeId: newValue?.id || "" });
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Employee"
-                          required
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      )}
-                      isOptionEqualToValue={(option, value) => option.id === value.id}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      type="date"
-                      label="Work Date"
-                      value={form.workDate}
-                      onChange={(e) => setForm({ ...form, workDate: e.target.value })}
-                      required
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      select
-                      label="Shift"
-                      value={form.shift}
-                      onChange={(e) => setForm({ ...form, shift: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    >
-                      {SHIFTS.map((shift) => (
-                        <MenuItem key={shift} value={shift}>
-                          {shift}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      type="datetime-local"
-                      label="Clock In"
-                      value={form.clockIn}
-                      onChange={(e) => setForm({ ...form, clockIn: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      type="datetime-local"
-                      label="Clock Out"
-                      value={form.clockOut}
-                      onChange={(e) => setForm({ ...form, clockOut: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      type="number"
-                      label="Break Minutes"
-                      value={form.breakMinutes}
-                      onChange={(e) => setForm({ ...form, breakMinutes: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                      inputProps={{ min: 0 }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      select
-                      label="Status"
-                      value={form.status}
-                      onChange={(e) => setForm({ ...form, status: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    >
-                      {STATUSES.map((status) => (
-                        <MenuItem key={status} value={status}>
-                          {status}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      multiline
-                      rows={2}
-                      label="Notes"
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
-                      <Button variant="outlined" onClick={resetForm}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        variant="contained"
-                        sx={{
-                          boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-                        }}
-                      >
-                        {editingId ? "Update Timesheet" : "Create Timesheet"}
-                      </Button>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-            </CardContent>
-          </Card>
-        </Collapse>
 
         {/* Table */}
         <Card 
@@ -526,7 +209,7 @@ export default function TimesheetsPage() {
                         <Button
                           variant="contained"
                           startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
+                          onClick={() => router.push("/admin/timesheets/new")}
                           size="small"
                         >
                           Add Timesheet
@@ -589,7 +272,7 @@ export default function TimesheetsPage() {
                             <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                               <IconButton 
                                 size="small" 
-                                onClick={() => startEdit(timesheet)}
+                                onClick={() => router.push(`/admin/timesheets/${timesheet.id}`)}
                                 sx={{
                                   bgcolor: alpha(tokens.colors.primary.main, 0.08),
                                   color: tokens.colors.primary.main,

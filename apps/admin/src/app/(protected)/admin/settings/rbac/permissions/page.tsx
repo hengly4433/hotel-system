@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -9,8 +10,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
-  TextField,
   Table,
   TableBody,
   TableCell,
@@ -22,10 +21,8 @@ import {
   Alert,
   Typography,
   Stack,
-  Grid,
   Chip,
   TablePagination,
-  Collapse,
   Tooltip,
   alpha,
 } from "@mui/material";
@@ -33,25 +30,15 @@ import {
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   Add as AddIcon, 
-  Close as CloseIcon,
   Security as SecurityIcon,
   Key as KeyIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 
-const EMPTY_FORM = {
-  resource: "",
-  action: "",
-  scope: ""
-};
-
 export default function PermissionsPage() {
+  const router = useRouter();
   const [permissions, setPermissions] = useState<RbacPermission[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -69,55 +56,6 @@ export default function PermissionsPage() {
     }, 0);
     return () => clearTimeout(timer);
   }, [loadData]);
-
-  function startEdit(permission: RbacPermission) {
-    setEditingId(permission.id);
-    setForm({
-      resource: permission.resource,
-      action: permission.action,
-      scope: permission.scope || ""
-    });
-    setShowForm(true);
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setShowForm(false);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const payload = {
-      resource: form.resource,
-      action: form.action,
-      scope: form.scope || null
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`rbac/permissions/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("rbac/permissions", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-
-      await loadData();
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleDelete(permissionId: string) {
     if (!confirm("Delete this permission?")) return;
@@ -157,18 +95,16 @@ export default function PermissionsPage() {
         title="Permissions"
         subtitle="Granular access rules for your system"
         action={
-          !showForm ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setShowForm(true)}
-              sx={{
-                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-              }}
-            >
-              New Permission
-            </Button>
-          ) : null
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/settings/rbac/permissions/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Permission
+          </Button>
         }
       />
 
@@ -179,131 +115,10 @@ export default function PermissionsPage() {
           </Alert>
         )}
 
-        {/* Form Card */}
-        <Collapse in={showForm}>
-          <Card 
-            sx={{ 
-              borderRadius: 3, 
-              boxShadow: tokens.shadows.card,
-              border: `1px solid ${tokens.colors.grey[200]}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 4,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <KeyIcon sx={{ color: tokens.colors.primary.main }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      {editingId ? "Edit Permission" : "Create New Permission"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {editingId ? "Update permission details" : "Define a new granular access rule"}
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton 
-                  onClick={resetForm} 
-                  size="small"
-                  sx={{
-                    bgcolor: tokens.colors.grey[100],
-                    '&:hover': {
-                      bgcolor: tokens.colors.grey[200],
-                    }
-                  }}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
-              
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="Resource"
-                      placeholder="e.g., guest, room, reservation"
-                      value={form.resource}
-                      onChange={(e) => setForm({ ...form, resource: e.target.value })}
-                      required
-                      InputLabelProps={{ shrink: true }}
-                      helperText="The entity being protected"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="Action"
-                      placeholder="e.g., CREATE, READ, UPDATE, DELETE"
-                      value={form.action}
-                      onChange={(e) => setForm({ ...form, action: e.target.value })}
-                      required
-                      InputLabelProps={{ shrink: true }}
-                      helperText="The operation allowed"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="Scope (optional)"
-                      placeholder="e.g., GLOBAL, PROPERTY"
-                      value={form.scope}
-                      onChange={(e) => setForm({ ...form, scope: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                      helperText="Additional scope restriction"
-                    />
-                  </Grid>
-
-                   <Grid size={{ xs: 12 }}>
-                     <Stack direction="row" spacing={2} justifyContent="flex-end">
-                        <Button 
-                          onClick={resetForm} 
-                          variant="outlined"
-                          sx={{ px: 3 }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          variant="contained"
-                          disabled={loading}
-                          sx={{ 
-                            px: 4,
-                            boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-                          }}
-                        >
-                          {loading ? "Saving..." : editingId ? "Update Permission" : "Create Permission"}
-                        </Button>
-                      </Stack>
-                   </Grid>
-                </Grid>
-              </Box>
-            </CardContent>
-          </Card>
-        </Collapse>
-
         {/* Table Card */}
         <Card 
           sx={{ 
-            borderRadius: 4, 
+            borderRadius: '18px', 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
             overflow: 'hidden',
@@ -405,7 +220,7 @@ export default function PermissionsPage() {
                             <Tooltip title="Edit">
                               <IconButton 
                                 size="small" 
-                                onClick={() => startEdit(permission)}
+                                onClick={() => router.push(`/admin/settings/rbac/permissions/${permission.id}`)}
                                 sx={{
                                   bgcolor: alpha(tokens.colors.primary.main, 0.08),
                                   color: tokens.colors.primary.main,
@@ -451,7 +266,7 @@ export default function PermissionsPage() {
                         <Button
                           variant="contained"
                           startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
+                          onClick={() => router.push("/admin/settings/rbac/permissions/new")}
                           size="small"
                         >
                           Add Permission

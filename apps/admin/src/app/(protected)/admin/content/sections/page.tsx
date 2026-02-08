@@ -248,10 +248,11 @@ export default function SectionsPage() {
                 </Box>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 3, pt: 2, bgcolor: tokens.colors.grey[50] }}>
-                <Stack spacing={3}>
+                <Stack spacing={2}>
                   <Box>
                     <TextField
                       fullWidth
+                      size="small"
                       label="Title"
                       placeholder={`Enter ${section.label.toLowerCase()} title...`}
                       value={content.title || ""}
@@ -261,9 +262,11 @@ export default function SectionsPage() {
                           [section.key]: { ...content, title: e.target.value } as PageContent,
                         }))
                       }
+                      InputLabelProps={{ shrink: true }}
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           bgcolor: "white",
+                          borderRadius: 2,
                         },
                       }}
                     />
@@ -273,6 +276,7 @@ export default function SectionsPage() {
                       fullWidth
                       multiline
                       rows={4}
+                      size="small"
                       label="Description"
                       placeholder={`Enter ${section.label.toLowerCase()} description...`}
                       value={content.description || ""}
@@ -286,9 +290,11 @@ export default function SectionsPage() {
                         }))
                       }
                       helperText={`${(content.description || "").length}/500 characters`}
+                      InputLabelProps={{ shrink: true }}
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           bgcolor: "white",
+                          borderRadius: 2,
                         },
                       }}
                     />

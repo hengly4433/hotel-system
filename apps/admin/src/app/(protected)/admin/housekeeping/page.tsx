@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -24,10 +25,7 @@ import {
   Stack,
   Grid,
   Chip,
-  List,
-  ListItem,
   TablePagination,
-  Collapse,
   alpha,
   Autocomplete,
 } from "@mui/material";
@@ -36,7 +34,6 @@ import {
   Delete as DeleteIcon, 
   Add as AddIcon, 
   Assignment as AssignmentIcon,
-  Close as CloseIcon,
   CleaningServices as HousekeepingIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
@@ -83,33 +80,19 @@ type BoardRow = {
 };
 
 const SHIFTS = ["AM", "PM", "NIGHT"] as const;
-const STATUSES = ["PENDING", "IN_PROGRESS", "DONE", "INSPECTED"] as const;
-
-const EMPTY_FORM = {
-  propertyId: "",
-  roomId: "",
-  taskDate: "",
-  shift: "AM",
-  status: "PENDING",
-  assignedToEmployeeId: "",
-  checklist: ""
-};
 
 export default function HousekeepingPage() {
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [events, setEvents] = useState<Array<{ status: string; changedAt: string; changedByUserId: string | null }>>([]);
   const [boardDate, setBoardDate] = useState<string>("");
   const [boardPropertyId, setBoardPropertyId] = useState<string>("");
   const [boardShift, setBoardShift] = useState<string>("");
   const [boardRows, setBoardRows] = useState<BoardRow[]>([]);
   const [boardError, setBoardError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -147,76 +130,9 @@ export default function HousekeepingPage() {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  const selectedProperty = useMemo(() => 
-    properties.find(p => p.id === form.propertyId) || null,
-  [properties, form.propertyId]);
-
-  const selectedRoom = useMemo(() => 
-    rooms.find(r => r.id === form.roomId) || null,
-  [rooms, form.roomId]);
-
-  const selectedEmployee = useMemo(() => 
-    employees.find(e => e.id === form.assignedToEmployeeId) || null,
-  [employees, form.assignedToEmployeeId]);
-
   const selectedBoardProperty = useMemo(() => 
     properties.find(p => p.id === boardPropertyId) || null,
   [properties, boardPropertyId]);
-
-  function startEdit(task: Task) {
-    setEditingId(task.id);
-    setForm({
-      propertyId: task.propertyId,
-      roomId: task.roomId,
-      taskDate: task.taskDate,
-      shift: task.shift,
-      status: task.status,
-      assignedToEmployeeId: task.assignedToEmployeeId || "",
-      checklist: task.checklist || ""
-    });
-    loadEvents(task.id);
-    setShowForm(true);
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setEvents([]);
-    setShowForm(false);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    const payload = {
-      propertyId: form.propertyId,
-      roomId: form.roomId,
-      taskDate: form.taskDate,
-      shift: form.shift,
-      status: form.status,
-      assignedToEmployeeId: form.assignedToEmployeeId || null,
-      checklist: form.checklist || null
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`housekeeping/tasks/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("housekeeping/tasks", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-      await loadData();
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this task?")) return;
@@ -272,17 +188,6 @@ export default function HousekeepingPage() {
     }
   }
 
-  async function loadEvents(taskId: string) {
-    try {
-      const data = await apiJson<Array<{ status: string; changedAt: string; changedByUserId: string | null }>>(
-        `housekeeping/tasks/${taskId}/events`
-      );
-      setEvents(data);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
-
   function getStatusColor(status: string) {
     switch(status) {
       case "DONE": return { bg: alpha("#22c55e", 0.15), color: "#166534" };
@@ -298,18 +203,16 @@ export default function HousekeepingPage() {
         title="Housekeeping" 
         subtitle="Daily cleaning tasks"
         action={
-          !showForm ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setShowForm(true)}
-              sx={{
-                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-              }}
-            >
-              New Task
-            </Button>
-          ) : null
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/housekeeping/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Task
+          </Button>
         }
       />
       
@@ -441,217 +344,6 @@ export default function HousekeepingPage() {
           </CardContent>
         </Card>
 
-        {/* Collapsible Form */}
-        <Collapse in={showForm}>
-          <Card 
-            sx={{ 
-              borderRadius: 3, 
-              boxShadow: tokens.shadows.card,
-              border: `1px solid ${tokens.colors.grey[200]}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 4,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <HousekeepingIcon sx={{ color: tokens.colors.primary.main }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      {editingId ? "Edit Task" : "Create New Task"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {editingId ? "Update housekeeping task" : "Add a new cleaning task"}
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton 
-                  onClick={resetForm} 
-                  size="small"
-                  sx={{
-                    bgcolor: tokens.colors.grey[100],
-                    '&:hover': { bgcolor: tokens.colors.grey[200] }
-                  }}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
-
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      options={properties}
-                      getOptionLabel={(option) => option.name}
-                      value={selectedProperty}
-                      onChange={(_, newValue) => {
-                        setForm({ ...form, propertyId: newValue?.id || "" });
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Property"
-                          required
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      )}
-                      isOptionEqualToValue={(option, value) => option.id === value.id}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      options={rooms}
-                      getOptionLabel={(option) => option.roomNumber}
-                      value={selectedRoom}
-                      onChange={(_, newValue) => {
-                        setForm({ ...form, roomId: newValue?.id || "" });
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Room"
-                          required
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      )}
-                      isOptionEqualToValue={(option, value) => option.id === value.id}
-                    />
-                  </Grid>
-                  
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      type="date"
-                      label="Date"
-                      value={form.taskDate}
-                      onChange={(e) => setForm({ ...form, taskDate: e.target.value })}
-                      required
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      select
-                      label="Shift"
-                      value={form.shift}
-                      onChange={(e) => setForm({ ...form, shift: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    >
-                      {SHIFTS.map((shift) => (
-                        <MenuItem key={shift} value={shift}>
-                          {shift}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      select
-                      label="Status"
-                      value={form.status}
-                      onChange={(e) => setForm({ ...form, status: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    >
-                      {STATUSES.map((status) => (
-                        <MenuItem key={status} value={status}>
-                          {status}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      options={employees}
-                      getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
-                      value={selectedEmployee}
-                      onChange={(_, newValue) => {
-                        setForm({ ...form, assignedToEmployeeId: newValue?.id || "" });
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Assigned Employee"
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      )}
-                      isOptionEqualToValue={(option, value) => option.id === value.id}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      label="Checklist (JSON)"
-                      value={form.checklist}
-                      onChange={(e) => setForm({ ...form, checklist: e.target.value })}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
-                      <Button variant="outlined" onClick={resetForm}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        variant="contained"
-                        sx={{
-                          boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-                        }}
-                      >
-                        {editingId ? "Update Task" : "Create Task"}
-                      </Button>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-              
-              {editingId && events.length > 0 && (
-                <Box sx={{ mt: 4 }}>
-                  <Typography variant="subtitle2" gutterBottom>Status Timeline</Typography>
-                  <List dense disablePadding>
-                    {events.map((event, index) => (
-                      <ListItem key={index} divider={index < events.length - 1}>
-                        <Grid container>
-                          <Grid size={{ xs: 4 }}>
-                            <Typography variant="body2" fontWeight="medium">{event.status}</Typography>
-                          </Grid>
-                          <Grid size={{ xs: 4 }}>
-                            <Typography variant="body2" color="text.secondary">{new Date(event.changedAt).toLocaleString()}</Typography>
-                          </Grid>
-                          <Grid size={{ xs: 4 }}>
-                            <Typography variant="body2" align="right">{event.changedByUserId || "system"}</Typography>
-                          </Grid>
-                        </Grid>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Collapse>
-
         {/* Table */}
         <Card 
           sx={{ 
@@ -690,7 +382,7 @@ export default function HousekeepingPage() {
                         <Button
                           variant="contained"
                           startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
+                          onClick={() => router.push("/admin/housekeeping/new")}
                           size="small"
                         >
                           Add Task
@@ -740,7 +432,7 @@ export default function HousekeepingPage() {
                             <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                               <IconButton 
                                 size="small" 
-                                onClick={() => startEdit(task)}
+                                onClick={() => router.push(`/admin/housekeeping/${task.id}`)}
                                 sx={{
                                   bgcolor: alpha(tokens.colors.primary.main, 0.08),
                                   color: tokens.colors.primary.main,

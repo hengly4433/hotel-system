@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -11,7 +12,6 @@ import {
   Button,
   Card,
   CardContent,
-  TextField,
   Table,
   TableBody,
   TableCell,
@@ -23,9 +23,7 @@ import {
   Alert,
   Typography,
   Stack,
-  Grid,
   TablePagination,
-  Collapse,
   Tooltip,
   alpha,
   Chip,
@@ -34,25 +32,16 @@ import {
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   Add as AddIcon, 
-  Close as CloseIcon,
   AdminPanelSettings as RoleIcon,
   Settings as SettingsIcon,
   Security as SecurityIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 
-const EMPTY_FORM = {
-  name: "",
-  propertyId: ""
-};
-
 export default function RolesPage() {
+  const router = useRouter();
   const [roles, setRoles] = useState<RbacRole[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -70,53 +59,6 @@ export default function RolesPage() {
     }, 0);
     return () => clearTimeout(timer);
   }, [loadData]);
-
-  function startEdit(role: RbacRole) {
-    setEditingId(role.id);
-    setForm({
-      name: role.name,
-      propertyId: role.propertyId || ""
-    });
-    setShowForm(true);
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setShowForm(false);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const payload = {
-      name: form.name,
-      propertyId: form.propertyId || null
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`rbac/roles/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("rbac/roles", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-
-      await loadData();
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleDelete(roleId: string) {
     if (!confirm("Delete this role?")) return;
@@ -146,18 +88,16 @@ export default function RolesPage() {
         title="Roles"
         subtitle="Define access profiles and assign permissions"
         action={
-          !showForm ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setShowForm(true)}
-              sx={{
-                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-              }}
-            >
-              New Role
-            </Button>
-          ) : null
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/settings/rbac/roles/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Role
+          </Button>
         }
       />
 
@@ -204,119 +144,10 @@ export default function RolesPage() {
           </CardContent>
         </Card>
 
-        {/* Form Card */}
-        <Collapse in={showForm}>
-          <Card 
-            sx={{ 
-              borderRadius: 3, 
-              boxShadow: tokens.shadows.card,
-              border: `1px solid ${tokens.colors.grey[200]}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 4,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <RoleIcon sx={{ color: tokens.colors.primary.main }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      {editingId ? "Edit Role" : "Create New Role"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {editingId ? "Update role details" : "Define a new access profile"}
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton 
-                  onClick={resetForm} 
-                  size="small"
-                  sx={{
-                    bgcolor: tokens.colors.grey[100],
-                    '&:hover': {
-                      bgcolor: tokens.colors.grey[200],
-                    }
-                  }}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
-              
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Role Name"
-                      placeholder="e.g., Front Desk, Manager, Housekeeper"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      required
-                      InputLabelProps={{ shrink: true }}
-                      helperText="A descriptive name for this role"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Property ID (Optional)"
-                      placeholder="Leave blank for global role"
-                      value={form.propertyId}
-                      onChange={(e) => setForm({ ...form, propertyId: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                      helperText="Restrict role to a specific property"
-                    />
-                  </Grid>
-
-                   <Grid size={{ xs: 12 }}>
-                     <Stack direction="row" spacing={2} justifyContent="flex-end">
-                        <Button 
-                          onClick={resetForm} 
-                          variant="outlined"
-                          sx={{ px: 3 }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          variant="contained"
-                          disabled={loading}
-                          sx={{ 
-                            px: 4,
-                            boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-                          }}
-                        >
-                          {loading ? "Saving..." : editingId ? "Update Role" : "Create Role"}
-                        </Button>
-                      </Stack>
-                   </Grid>
-                </Grid>
-              </Box>
-            </CardContent>
-          </Card>
-        </Collapse>
-
         {/* Table Card */}
         <Card 
           sx={{ 
-            borderRadius: 4, 
+            borderRadius: '18px', 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
             overflow: 'hidden',
@@ -431,7 +262,7 @@ export default function RolesPage() {
                         <Tooltip title="Edit Role">
                           <IconButton 
                             size="small" 
-                            onClick={() => startEdit(role)}
+                            onClick={() => router.push(`/admin/settings/rbac/roles/${role.id}/edit`)}
                             sx={{
                               bgcolor: alpha(tokens.colors.primary.main, 0.08),
                               color: tokens.colors.primary.main,
@@ -476,7 +307,7 @@ export default function RolesPage() {
                         <Button
                           variant="contained"
                           startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
+                          onClick={() => router.push("/admin/settings/rbac/roles/new")}
                           size="small"
                         >
                           Add Role
