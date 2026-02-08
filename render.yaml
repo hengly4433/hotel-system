@@ -33,7 +33,7 @@ services:
       - key: DB_NAME
         fromDatabase:
           name: hotel-db
-          property: databaseName
+          property: database
       - key: DB_USER
         fromDatabase:
           name: hotel-db
