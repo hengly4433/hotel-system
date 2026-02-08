@@ -27,3 +27,6 @@ build/
 
 # OS
 .DS_Store
+**/bin/
+# Java compiled classes
+**/bin/

@@ -1,0 +1,88 @@
+databases:
+  # --------------------------------------------------------------------------------
+  # DATABASE (PostgreSQL)
+  # --------------------------------------------------------------------------------
+  - name: hotel-db
+    databaseName: hotel_system
+    user: hotel_user
+    plan: free # or starter
+    region: singapore # Change to your preferred region
+
+services:
+  # --------------------------------------------------------------------------------
+  # BACKEND (Spring Boot)
+  # --------------------------------------------------------------------------------
+  - type: web
+    name: hotel-backend
+    region: singapore
+    plan: free # or starter
+    runtime: docker
+    repo: https://github.com/hengly4433/hotel-system # Render will ask to connect this automatically
+    branch: main
+    rootDir: . # Context must be root to access db/ folder
+    dockerfilePath: backend/Dockerfile
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://${hotel-db.host}:${hotel-db.port}/${hotel-db.databaseName}
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: hotel-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: hotel-db
+          property: password
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: validate
+      - key: APP_STOREFRONT_BASE_URL
+        value: https://hotel-storefront.onrender.com # Update after first deploy if needed
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_AUTH_GOOGLE_CLIENT_ID
+        sync: false # User must input this in dashboard
+      - key: APP_AUTH_GOOGLE_CLIENT_SECRET
+        sync: false # User must input this in dashboard
+      - key: APP_AUTH_GOOGLE_REDIRECT_URI
+        value: https://hotel-backend.onrender.com/api/v1/auth/oauth2/callback/google
+
+  # --------------------------------------------------------------------------------
+  # STOREFRONT (Next.js)
+  # --------------------------------------------------------------------------------
+  - type: web
+    name: hotel-storefront
+    region: singapore
+    plan: free # or starter
+    runtime: docker
+    rootDir: .
+    dockerfilePath: apps/storefront/Dockerfile
+    envVars:
+      - key: BACKEND_BASE_URL
+        fromService:
+          type: web
+          name: hotel-backend
+          property: host
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false # User must input
+
+  # --------------------------------------------------------------------------------
+  # ADMIN PANEL (Next.js)
+  # --------------------------------------------------------------------------------
+  - type: web
+    name: hotel-admin
+    region: singapore
+    plan: free # or starter
+    runtime: docker
+    rootDir: .
+    dockerfilePath: apps/admin/Dockerfile
+    envVars:
+      - key: BACKEND_BASE_URL
+        fromService:
+          type: web
+          name: hotel-backend
+          property: host
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false # User must input
+      - key: NEXT_PUBLIC_SUPABASE_KEY
+        sync: false # User must input
+      - key: NEXT_PUBLIC_SUPABASE_BUCKET
+        value: room-images
