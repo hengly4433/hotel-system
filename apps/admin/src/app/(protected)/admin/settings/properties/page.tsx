@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -8,9 +9,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
-  TextField,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -22,10 +20,18 @@ import {
   Alert,
   Typography,
   Stack,
-  Grid,
-  TablePagination
+  Chip,
+  TablePagination,
+  Tooltip,
+  alpha,
 } from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from "@mui/icons-material";
+import { 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Add as AddIcon,
+  Business as PropertyIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 type Organization = {
   id: string;
@@ -36,45 +42,27 @@ type Property = {
   id: string;
   organizationId: string;
   name: string;
-  timezone: string;
-  currency: string;
-  addressLine1: string | null;
-  addressLine2: string | null;
+  timezone: string | null;
+  currency: string | null;
   city: string | null;
-  state: string | null;
-  postalCode: string | null;
   country: string | null;
 };
 
-const EMPTY_FORM = {
-  organizationId: "",
-  name: "",
-  timezone: "Asia/Phnom_Penh",
-  currency: "USD",
-  addressLine1: "",
-  addressLine2: "",
-  city: "",
-  state: "",
-  postalCode: "",
-  country: ""
-};
-
 export default function PropertiesPage() {
+  const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    setError(null);
     try {
-      const [propsData, orgData] = await Promise.all([
+      const [propsData, orgsData] = await Promise.all([
         apiJson<Property[]>("properties"),
         apiJson<Organization[]>("organizations")
       ]);
       setProperties(propsData);
-      setOrganizations(orgData);
-      setError(null);
+      setOrganizations(orgsData);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -87,62 +75,10 @@ export default function PropertiesPage() {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  function startEdit(property: Property) {
-    setEditingId(property.id);
-    setForm({
-      organizationId: property.organizationId,
-      name: property.name,
-      timezone: property.timezone,
-      currency: property.currency,
-      addressLine1: property.addressLine1 || "",
-      addressLine2: property.addressLine2 || "",
-      city: property.city || "",
-      state: property.state || "",
-      postalCode: property.postalCode || "",
-      country: property.country || ""
-    });
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    const payload = {
-      organizationId: form.organizationId,
-      name: form.name,
-      timezone: form.timezone || null,
-      currency: form.currency || null,
-      addressLine1: form.addressLine1 || null,
-      addressLine2: form.addressLine2 || null,
-      city: form.city || null,
-      state: form.state || null,
-      postalCode: form.postalCode || null,
-      country: form.country || null
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`properties/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("properties", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-      await loadData();
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
+  const getOrgName = (orgId: string) => {
+    const org = organizations.find(o => o.id === orgId);
+    return org?.name || orgId;
+  };
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this property?")) return;
@@ -152,10 +88,6 @@ export default function PropertiesPage() {
     } catch (err) {
       setError(getErrorMessage(err));
     }
-  }
-
-  function orgName(orgId: string) {
-    return organizations.find((org) => org.id === orgId)?.name || orgId;
   }
 
   const [page, setPage] = useState(0);
@@ -171,162 +103,197 @@ export default function PropertiesPage() {
   };
 
   return (
-    <main>
-      <PageHeader title="Properties" subtitle="Manage properties" />
-      
+    <Box component="main">
+      <PageHeader
+        title="Properties"
+        subtitle="Manage hotel properties"
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/settings/properties/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Property
+          </Button>
+        }
+      />
+
       <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                    {editingId ? "Edit Property" : "Create Property"}
-                </Typography>
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-                    <Grid container spacing={2}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                select
-                                label="Organization"
-                                value={form.organizationId}
-                                onChange={(e) => setForm({ ...form, organizationId: e.target.value })}
-                                required
-                                fullWidth
-                            >
-                                <MenuItem value="">Select</MenuItem>
-                                {organizations.map((org) => (
-                                <MenuItem key={org.id} value={org.id}>
-                                    {org.name}
-                                </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                label="Name"
-                                value={form.name}
-                                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                required
-                                fullWidth
-                            />
-                        </Grid>
-                        
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                label="Timezone"
-                                value={form.timezone}
-                                onChange={(e) => setForm({ ...form, timezone: e.target.value })}
-                                fullWidth
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                label="Currency"
-                                value={form.currency}
-                                onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                                fullWidth
-                            />
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                             <Typography variant="subtitle2" gutterBottom>Address</Typography>
-                             <Grid container spacing={2}>
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <TextField label="Address Line 1" value={form.addressLine1} onChange={(e) => setForm({ ...form, addressLine1: e.target.value })} fullWidth />
-                                </Grid>
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <TextField label="Address Line 2" value={form.addressLine2} onChange={(e) => setForm({ ...form, addressLine2: e.target.value })} fullWidth />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 3 }}>
-                                    <TextField label="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} fullWidth />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 3 }}>
-                                    <TextField label="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} fullWidth />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 3 }}>
-                                    <TextField label="Postal Code" value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} fullWidth />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 3 }}>
-                                    <TextField label="Country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} fullWidth />
-                                </Grid>
-                             </Grid>
-                        </Grid>
-                        
-                        <Grid size={{ xs: 12 }}>
-                            <Stack direction="row" spacing={2} justifyContent="flex-end">
-                                <Button 
-                                    type="submit" 
-                                    variant="contained" 
-                                    startIcon={!editingId && <AddIcon />}
-                                >
-                                    {editingId ? "Update" : "Create"}
-                                </Button>
-                                {editingId && (
-                                    <Button variant="outlined" onClick={resetForm}>
-                                        Cancel
-                                    </Button>
-                                )}
-                            </Stack>
-                        </Grid>
-                    </Grid>
-                </Box>
-            </CardContent>
-        </Card>
-
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <TableContainer component={Paper} elevation={0}>
-                <Table>
-                <TableHead sx={{ bgcolor: "#f8fafc" }}>
-                    <TableRow>
-                     <TableCell sx={{ fontWeight: "bold", width: 60 }}>No</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Organization</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Timezone</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Currency</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold" }}>Actions</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {properties
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((property, index) => (
-                    <TableRow key={property.id} hover>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>{property.name}</TableCell>
-                        <TableCell>{orgName(property.organizationId)}</TableCell>
-                        <TableCell>{property.timezone}</TableCell>
-                        <TableCell>{property.currency}</TableCell>
-                        <TableCell align="right">
-                        <IconButton size="small" onClick={() => startEdit(property)} color="primary">
-                            <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(property.id)} color="error">
-                            <DeleteIcon />
-                        </IconButton>
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                    {properties.length === 0 && (
-                     <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                            No properties found
-                        </TableCell>
-                     </TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </TableContainer>
+        {/* Table Card */}
+        <Card 
+          sx={{ 
+            borderRadius: '18px', 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Property Name</TableCell>
+                  <TableCell>Organization</TableCell>
+                  <TableCell>Location</TableCell>
+                  <TableCell>Currency</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {properties
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((property, index) => (
+                  <TableRow 
+                    key={property.id} 
+                    hover
+                    sx={{
+                      '&:hover': {
+                        bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                      }
+                    }}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {page * rowsPerPage + index + 1}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box
+                          sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 2,
+                            bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <PropertyIcon sx={{ fontSize: 18, color: tokens.colors.primary.main }} />
+                        </Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          {property.name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={getOrgName(property.organizationId)} 
+                        size="small"
+                        sx={{
+                          fontWeight: 500,
+                          bgcolor: alpha(tokens.colors.primary.main, 0.1),
+                          color: tokens.colors.primary.dark,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {property.city || property.country ? (
+                        <Typography variant="body2" color="text.secondary">
+                          {[property.city, property.country].filter(Boolean).join(', ')}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {property.currency ? (
+                        <Chip 
+                          label={property.currency} 
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontWeight: 500 }}
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title="Edit">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => router.push(`/admin/settings/properties/${property.id}`)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                              color: tokens.colors.primary.main,
+                              '&:hover': {
+                                bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                              }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDelete(property.id)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.error.main, 0.08),
+                              color: tokens.colors.error.main,
+                              '&:hover': {
+                                bgcolor: alpha(tokens.colors.error.main, 0.15),
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {properties.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <PropertyIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No properties found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          Get started by creating your first property
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => router.push("/admin/settings/properties/new")}
+                          size="small"
+                        >
+                          Add Property
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {properties.length > 0 && (
             <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={properties.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={properties.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
             />
+          )}
         </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

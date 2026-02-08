@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -8,8 +9,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
-  TextField,
   Table,
   TableBody,
   TableCell,
@@ -21,30 +20,33 @@ import {
   Alert,
   Typography,
   Stack,
-  TablePagination
+  TablePagination,
+  Tooltip,
+  alpha,
 } from "@mui/material";
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from "@mui/icons-material";
+import { 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Add as AddIcon,
+  Business as OrgIcon,
+} from "@mui/icons-material";
+import { tokens } from "@/lib/theme";
 
 type Organization = {
   id: string;
   name: string;
 };
 
-const EMPTY_FORM = {
-  name: ""
-};
-
 export default function OrganizationsPage() {
+  const router = useRouter();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    setError(null);
     try {
       const data = await apiJson<Organization[]>("organizations");
       setOrganizations(data);
-      setError(null);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -56,39 +58,6 @@ export default function OrganizationsPage() {
     }, 0);
     return () => clearTimeout(timer);
   }, [loadData]);
-
-  function startEdit(org: Organization) {
-    setEditingId(org.id);
-    setForm({ name: org.name });
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    try {
-      if (editingId) {
-        await apiJson(`organizations/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(form)
-        });
-      } else {
-        await apiJson("organizations", {
-          method: "POST",
-          body: JSON.stringify(form)
-        });
-      }
-      await loadData();
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this organization?")) return;
@@ -113,91 +82,162 @@ export default function OrganizationsPage() {
   };
 
   return (
-    <main>
-      <PageHeader title="Organizations" subtitle="Manage hotel groups" />
-      
+    <Box component="main">
+      <PageHeader
+        title="Organizations"
+        subtitle="Manage hotel groups and chains"
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/settings/organizations/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Organization
+          </Button>
+        }
+      />
+
       <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                    {editingId ? "Edit Organization" : "Create Organization"}
-                </Typography>
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
-                    <TextField
-                        label="Name"
-                        value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        required
-                        fullWidth
-                        size="small"
-                        sx={{ maxWidth: 400 }}
-                    />
-                    <Button 
-                        type="submit" 
-                        variant="contained"
-                        startIcon={!editingId && <AddIcon />}
-                    >
-                        {editingId ? "Update" : "Create"}
-                    </Button>
-                    {editingId && (
-                        <Button variant="outlined" onClick={resetForm}>
-                            Cancel
+        {/* Table Card */}
+        <Card 
+          sx={{ 
+            borderRadius: '18px', 
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer component={Paper} elevation={0}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 60 }}>No</TableCell>
+                  <TableCell>Organization Name</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {organizations
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((org, index) => (
+                  <TableRow 
+                    key={org.id} 
+                    hover
+                    sx={{
+                      '&:hover': {
+                        bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                      }
+                    }}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {page * rowsPerPage + index + 1}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box
+                          sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 2,
+                            bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <OrgIcon sx={{ fontSize: 18, color: tokens.colors.primary.main }} />
+                        </Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          {org.name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title="Edit">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => router.push(`/admin/settings/organizations/${org.id}`)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                              color: tokens.colors.primary.main,
+                              '&:hover': {
+                                bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                              }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDelete(org.id)}
+                            sx={{
+                              bgcolor: alpha(tokens.colors.error.main, 0.08),
+                              color: tokens.colors.error.main,
+                              '&:hover': {
+                                bgcolor: alpha(tokens.colors.error.main, 0.15),
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {organizations.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} align="center" sx={{ py: 8 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <OrgIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No organizations found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                          Get started by creating your first organization
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => router.push("/admin/settings/organizations/new")}
+                          size="small"
+                        >
+                          Add Organization
                         </Button>
-                    )}
-                </Box>
-            </CardContent>
-        </Card>
-
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <TableContainer component={Paper} elevation={0}>
-                <Table>
-                <TableHead sx={{ bgcolor: "#f8fafc" }}>
-                    <TableRow>
-                     <TableCell sx={{ fontWeight: "bold", width: 60 }}>No</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: "bold" }}>Actions</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {organizations
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((org, index) => (
-                    <TableRow key={org.id} hover>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>{org.name}</TableCell>
-                        <TableCell align="right">
-                        <IconButton size="small" onClick={() => startEdit(org)} color="primary">
-                            <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(org.id)} color="error">
-                            <DeleteIcon />
-                        </IconButton>
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                    {organizations.length === 0 && (
-                     <TableRow>
-                        <TableCell colSpan={3} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                            No organizations found
-                        </TableCell>
-                     </TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </TableContainer>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {organizations.length > 0 && (
             <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={organizations.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={organizations.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
             />
+          )}
         </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

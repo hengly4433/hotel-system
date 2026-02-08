@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -10,7 +11,6 @@ import {
   Card,
   CardContent,
   TextField,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -22,11 +22,9 @@ import {
   Typography,
   Alert,
   Stack,
-  Grid,
   Avatar,
   Chip,
   TablePagination,
-  Collapse,
   alpha,
   InputAdornment,
 } from "@mui/material";
@@ -35,7 +33,6 @@ import {
   Delete as DeleteIcon, 
   Add as AddIcon, 
   Search as SearchIcon,
-  Close as CloseIcon,
   Badge as EmployeeIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
@@ -69,38 +66,14 @@ type Employee = {
   employmentStatus: string;
 };
 
-const STATUSES = ["ACTIVE", "INACTIVE", "TERMINATED"] as const;
-
-const EMPTY_FORM = {
-  propertyId: "",
-  firstName: "",
-  lastName: "",
-  dob: "",
-  phone: "",
-  email: "",
-  addressLine1: "",
-  addressLine2: "",
-  city: "",
-  state: "",
-  postalCode: "",
-  country: "",
-  jobTitle: "",
-  department: "",
-  hireDate: "",
-  hourlyRate: "",
-  skills: "",
-  photoUrl: "",
-  employmentStatus: "ACTIVE"
-};
-
 export default function EmployeesPage() {
+  const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const loadData = useCallback(async () => {
     try {
@@ -122,83 +95,6 @@ export default function EmployeesPage() {
     }, 0);
     return () => clearTimeout(timer);
   }, [loadData]);
-
-  function startEdit(employee: Employee) {
-    setEditingId(employee.id);
-    setForm({
-      propertyId: employee.propertyId,
-      firstName: employee.firstName,
-      lastName: employee.lastName,
-      dob: employee.dob || "",
-      phone: employee.phone || "",
-      email: employee.email || "",
-      addressLine1: employee.addressLine1 || "",
-      addressLine2: employee.addressLine2 || "",
-      city: employee.city || "",
-      state: employee.state || "",
-      postalCode: employee.postalCode || "",
-      country: employee.country || "",
-      jobTitle: employee.jobTitle || "",
-      department: employee.department || "",
-      hireDate: employee.hireDate || "",
-      hourlyRate: employee.hourlyRate !== null ? String(employee.hourlyRate) : "",
-      skills: skillsToInput(employee.skills),
-      photoUrl: employee.photoUrl || "",
-      employmentStatus: employee.employmentStatus || "ACTIVE"
-    });
-    setShowForm(true);
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setShowForm(false);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    const payload = {
-      propertyId: form.propertyId,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      dob: form.dob || null,
-      phone: form.phone || null,
-      email: form.email || null,
-      addressLine1: form.addressLine1 || null,
-      addressLine2: form.addressLine2 || null,
-      city: form.city || null,
-      state: form.state || null,
-      postalCode: form.postalCode || null,
-      country: form.country || null,
-      jobTitle: form.jobTitle || null,
-      department: form.department || null,
-      hireDate: form.hireDate || null,
-      hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : null,
-      skills: inputToSkills(form.skills),
-      photoUrl: form.photoUrl || null,
-      employmentStatus: form.employmentStatus
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`employees/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload)
-        });
-      } else {
-        await apiJson("employees", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-      }
-      await loadData();
-      resetForm();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this employee?")) return;
@@ -227,19 +123,6 @@ export default function EmployeesPage() {
     }
   }
 
-  function skillsToInput(skills: string | null) {
-    if (!skills) return "";
-    try {
-      const parsed = JSON.parse(skills);
-      if (Array.isArray(parsed)) {
-        return parsed.join(", ");
-      }
-      return skills;
-    } catch {
-      return skills;
-    }
-  }
-
   function skillsToLabel(skills: string | null) {
     if (!skills) return "-";
     try {
@@ -252,15 +135,6 @@ export default function EmployeesPage() {
     }
     return skills;
   }
-
-  function inputToSkills(value: string) {
-    if (!value) return null;
-    const items = value.split(",").map((item) => item.trim()).filter(Boolean);
-    return JSON.stringify(items);
-  }
-
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -277,18 +151,16 @@ export default function EmployeesPage() {
         title="Employees" 
         subtitle="Staff profiles and management"
         action={
-          !showForm ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setShowForm(true)}
-              sx={{
-                boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-              }}
-            >
-              New Employee
-            </Button>
-          ) : null
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push("/admin/employees/new")}
+            sx={{
+              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+            }}
+          >
+            New Employee
+          </Button>
         }
       />
       
@@ -329,292 +201,6 @@ export default function EmployeesPage() {
           </CardContent>
         </Card>
 
-        {/* Form Card */}
-        <Collapse in={showForm}>
-          <Card 
-            sx={{ 
-              borderRadius: 3, 
-              boxShadow: tokens.shadows.card,
-              border: `1px solid ${tokens.colors.grey[200]}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 4,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <EmployeeIcon sx={{ color: tokens.colors.primary.main }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      {editingId ? "Edit Employee" : "Add New Employee"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {editingId ? "Update employee details" : "Create a new staff profile"}
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton 
-                  onClick={resetForm} 
-                  size="small"
-                  sx={{
-                    bgcolor: tokens.colors.grey[100],
-                    '&:hover': {
-                      bgcolor: tokens.colors.grey[200],
-                    }
-                  }}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
-
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      select 
-                      fullWidth 
-                      label="Property" 
-                      value={form.propertyId} 
-                      onChange={(e) => setForm({ ...form, propertyId: e.target.value })} 
-                      required
-                      InputLabelProps={{ shrink: true }}
-                    >
-                      <MenuItem value="">Select</MenuItem>
-                      {properties.map((property) => (
-                        <MenuItem key={property.id} value={property.id}>{property.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      select 
-                      fullWidth 
-                      label="Status" 
-                      value={form.employmentStatus} 
-                      onChange={(e) => setForm({ ...form, employmentStatus: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                    >
-                      {STATUSES.map((status) => (
-                        <MenuItem key={status} value={status}>{status}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      label="First Name" 
-                      value={form.firstName} 
-                      onChange={(e) => setForm({ ...form, firstName: e.target.value })} 
-                      required 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Last Name" 
-                      value={form.lastName} 
-                      onChange={(e) => setForm({ ...form, lastName: e.target.value })} 
-                      required 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      type="date"
-                      label="Date of Birth" 
-                      value={form.dob} 
-                      onChange={(e) => setForm({ ...form, dob: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      type="date"
-                      label="Hire Date" 
-                      value={form.hireDate} 
-                      onChange={(e) => setForm({ ...form, hireDate: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Email" 
-                      value={form.email} 
-                      onChange={(e) => setForm({ ...form, email: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Phone" 
-                      value={form.phone} 
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Job Title" 
-                      value={form.jobTitle} 
-                      onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Department" 
-                      value={form.department} 
-                      onChange={(e) => setForm({ ...form, department: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      type="number"
-                      label="Hourly Rate" 
-                      value={form.hourlyRate} 
-                      onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Photo URL" 
-                      value={form.photoUrl} 
-                      onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Skills (comma separated)" 
-                      value={form.skills} 
-                      onChange={(e) => setForm({ ...form, skills: e.target.value })} 
-                      InputLabelProps={{ shrink: true }}
-                      placeholder="e.g., Housekeeping, Front Desk, Maintenance"
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>Address</Typography>
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField 
-                          fullWidth 
-                          label="Address Line 1" 
-                          value={form.addressLine1} 
-                          onChange={(e) => setForm({ ...form, addressLine1: e.target.value })} 
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField 
-                          fullWidth 
-                          label="Address Line 2" 
-                          value={form.addressLine2} 
-                          onChange={(e) => setForm({ ...form, addressLine2: e.target.value })} 
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 6, md: 3 }}>
-                        <TextField 
-                          fullWidth 
-                          label="City" 
-                          value={form.city} 
-                          onChange={(e) => setForm({ ...form, city: e.target.value })} 
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 6, md: 3 }}>
-                        <TextField 
-                          fullWidth 
-                          label="State" 
-                          value={form.state} 
-                          onChange={(e) => setForm({ ...form, state: e.target.value })} 
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 6, md: 3 }}>
-                        <TextField 
-                          fullWidth 
-                          label="Postal Code" 
-                          value={form.postalCode} 
-                          onChange={(e) => setForm({ ...form, postalCode: e.target.value })} 
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 6, md: 3 }}>
-                        <TextField 
-                          fullWidth 
-                          label="Country" 
-                          value={form.country} 
-                          onChange={(e) => setForm({ ...form, country: e.target.value })} 
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                    </Grid>
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
-                      <Button 
-                        onClick={resetForm}
-                        variant="outlined"
-                        sx={{ px: 3 }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        variant="contained"
-                        sx={{ 
-                          px: 4,
-                          boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-                        }}
-                      >
-                        {editingId ? "Update Employee" : "Create Employee"}
-                      </Button>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-            </CardContent>
-          </Card>
-        </Collapse>
-
         {/* Table Card */}
         <Card 
           sx={{ 
@@ -653,7 +239,7 @@ export default function EmployeesPage() {
                         <Button
                           variant="contained"
                           startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
+                          onClick={() => router.push("/admin/employees/new")}
                           size="small"
                         >
                           Add Employee
@@ -716,7 +302,7 @@ export default function EmployeesPage() {
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                           <IconButton 
                             size="small" 
-                            onClick={() => startEdit(employee)}
+                            onClick={() => router.push(`/admin/employees/${employee.id}`)}
                             sx={{
                               bgcolor: alpha(tokens.colors.primary.main, 0.08),
                               color: tokens.colors.primary.main,

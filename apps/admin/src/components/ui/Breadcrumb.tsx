@@ -10,9 +10,8 @@ import { tokens } from "@/lib/theme";
 const ROUTE_LABELS: Record<string, string> = {
   admin: "Dashboard",
   reservations: "Reservations",
-  new: "New Reservation",
   rooms: "Rooms",
-  "room-types": "Room Types",
+  types: "Room Types",
   "room-board": "Room Board",
   availability: "Availability",
   finance: "Finance",
@@ -21,6 +20,10 @@ const ROUTE_LABELS: Record<string, string> = {
   pricing: "Pricing",
   reports: "Reports",
   operations: "Operations",
+  employees: "Employees",
+  housekeeping: "Housekeeping",
+  maintenance: "Maintenance",
+  timesheets: "Timesheets",
   content: "Content",
   blogs: "Blogs",
   sections: "Section Content",
@@ -30,12 +33,29 @@ const ROUTE_LABELS: Record<string, string> = {
   system: "System",
 };
 
+// Context-aware labels for 'new' based on parent route
+const NEW_LABELS: Record<string, string> = {
+  reservations: "New Reservation",
+  rooms: "New Room",
+  employees: "New Employee",
+  guests: "New Guest",
+  blogs: "New Blog",
+  housekeeping: "New Task",
+  maintenance: "New Ticket",
+  timesheets: "New Timesheet",
+};
+
 // Dynamic route patterns that should show specific labels
 const DYNAMIC_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
-  { pattern: /^[0-9a-f]{8}-[0-9a-f]{4}/, label: "Details" },
+  { pattern: /^[0-9a-f]{8}-[0-9a-f]{4}/, label: "Edit" },
 ];
 
-function getLabel(segment: string): string {
+function getLabel(segment: string, prevSegment?: string): string {
+  // Handle 'new' with context from parent route
+  if (segment === "new" && prevSegment && NEW_LABELS[prevSegment]) {
+    return NEW_LABELS[prevSegment];
+  }
+
   // Check if it's a known route
   if (ROUTE_LABELS[segment]) {
     return ROUTE_LABELS[segment];
@@ -64,7 +84,8 @@ export default function Breadcrumb() {
   // Build breadcrumb items with paths
   const items = segments.map((segment, index) => {
     const path = "/" + segments.slice(0, index + 1).join("/");
-    const label = getLabel(segment);
+    const prevSegment = index > 0 ? segments[index - 1] : undefined;
+    const label = getLabel(segment, prevSegment);
     const isLast = index === segments.length - 1;
 
     return { segment, path, label, isLast };
