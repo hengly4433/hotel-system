@@ -22,14 +22,27 @@ export async function POST(req: Request) {
     );
   }
 
-  const res = await fetch(`${base}${prefix}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-    cache: "no-store"
-  });
+  const loginUrl = `${base}${prefix}/auth/login`;
+  console.log("DEBUG: Attempting login to:", loginUrl);
+
+  let res;
+  try {
+    res = await fetch(loginUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+      cache: "no-store"
+    });
+  } catch (err) {
+    console.error("DEBUG: Fetch error:", err);
+    return NextResponse.json(
+      { code: "CONNECTION_ERROR", message: `Failed to connect to backend: ${err}` },
+      { status: 502 }
+    );
+  }
 
   const data = await res.json().catch(() => null);
+  console.log("DEBUG: Backend response status:", res.status, "data:", data);
 
   if (!res.ok) {
     return NextResponse.json(
