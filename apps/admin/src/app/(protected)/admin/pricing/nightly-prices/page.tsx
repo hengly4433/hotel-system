@@ -36,6 +36,7 @@ import {
   AttachMoney as PriceIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type RatePlan = {
   id: string;
@@ -86,6 +87,7 @@ export default function NightlyPricesPage() {
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const loadLookups = useCallback(async () => {
     try {
@@ -206,13 +208,15 @@ export default function NightlyPricesPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this nightly price?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`rate-plan-prices/${id}`, { method: "DELETE" });
+      await apiJson(`rate-plan-prices/${deleteId}`, { method: "DELETE" });
       await loadPrices();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -572,7 +576,7 @@ export default function NightlyPricesPage() {
                           </IconButton>
                           <IconButton 
                             size="small" 
-                            onClick={() => handleDelete(price.id)}
+                            onClick={() => setDeleteId(price.id)}
                             sx={{
                               bgcolor: alpha(tokens.colors.error.main, 0.08),
                               color: tokens.colors.error.main,
@@ -605,6 +609,15 @@ export default function NightlyPricesPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Nightly Price?"
+        description="This will permanently remove this nightly price."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

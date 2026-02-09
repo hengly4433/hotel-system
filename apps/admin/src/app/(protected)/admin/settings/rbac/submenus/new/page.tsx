@@ -9,6 +9,7 @@ import { Box, Alert, CircularProgress } from "@mui/material";
 import SubmenuForm, { SubmenuFormData } from "../SubmenuForm";
 
 type Menu = {
+  id: string;
   key: string;
   label: string;
 };

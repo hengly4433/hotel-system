@@ -33,6 +33,8 @@ import {
   Build as MaintenanceIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/contexts/ToastContext";
 
 type Property = {
   id: string;
@@ -74,6 +76,8 @@ export default function MaintenancePage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
     try {
@@ -108,13 +112,16 @@ export default function MaintenancePage() {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this ticket?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`maintenance/tickets/${id}`, { method: "DELETE" });
+      await apiJson(`maintenance/tickets/${deleteId}`, { method: "DELETE" });
+      showSuccess("Ticket deleted successfully");
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -135,9 +142,10 @@ export default function MaintenancePage() {
   async function updateWorkflow(id: string, action: "start" | "resolve" | "close") {
     try {
       await apiJson(`maintenance/tickets/${id}/${action}`, { method: "POST" });
+      showSuccess(`Ticket ${action === 'start' ? 'started' : action === 'resolve' ? 'resolved' : 'closed'} successfully`);
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   }
 
@@ -326,7 +334,7 @@ export default function MaintenancePage() {
                               <IconButton 
                                 size="small" 
                                 title="Delete" 
-                                onClick={() => handleDelete(ticket.id)}
+                                onClick={() => setDeleteId(ticket.id)}
                                 sx={{
                                   bgcolor: alpha(tokens.colors.error.main, 0.08),
                                   color: tokens.colors.error.main,
@@ -360,6 +368,15 @@ export default function MaintenancePage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Ticket?"
+        description="This will permanently remove this maintenance ticket."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

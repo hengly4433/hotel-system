@@ -35,6 +35,7 @@ import {
   Policy as PolicyIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Property = {
   id: string;
@@ -65,6 +66,7 @@ export default function CancellationPoliciesPage() {
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   async function loadData() {
     setError(null);
@@ -157,13 +159,15 @@ export default function CancellationPoliciesPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this cancellation policy?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`cancellation-policies/${id}`, { method: "DELETE" });
+      await apiJson(`cancellation-policies/${deleteId}`, { method: "DELETE" });
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -399,7 +403,7 @@ export default function CancellationPoliciesPage() {
                           </IconButton>
                           <IconButton 
                             size="small" 
-                            onClick={() => handleDelete(policy.id)}
+                            onClick={() => setDeleteId(policy.id)}
                             sx={{
                               bgcolor: alpha(tokens.colors.error.main, 0.08),
                               color: tokens.colors.error.main,
@@ -432,6 +436,15 @@ export default function CancellationPoliciesPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Cancellation Policy?"
+        description="This will permanently remove this cancellation policy."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

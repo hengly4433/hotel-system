@@ -41,6 +41,8 @@ import {
   Star as StarIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/contexts/ToastContext";
 
 type Guest = {
   id: string;
@@ -91,6 +93,8 @@ export default function GuestsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
     try {
@@ -159,26 +163,31 @@ export default function GuestsPage() {
           method: "PUT",
           body: JSON.stringify(payload),
         });
+        showSuccess("Guest updated successfully");
       } else {
         await apiJson("guests", {
           method: "POST",
           body: JSON.stringify(payload),
         });
+        showSuccess("Guest created successfully");
       }
       await loadData();
       resetForm();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this guest?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`guests/${id}`, { method: "DELETE" });
+      await apiJson(`guests/${deleteId}`, { method: "DELETE" });
+      showSuccess("Guest deleted successfully");
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -585,7 +594,7 @@ export default function GuestsPage() {
                         <Tooltip title="Delete">
                           <IconButton 
                             size="small" 
-                            onClick={() => handleDelete(guest.id)}
+                            onClick={() => setDeleteId(guest.id)}
                             sx={{
                               bgcolor: alpha(tokens.colors.error.main, 0.08),
                               color: tokens.colors.error.main,
@@ -640,6 +649,15 @@ export default function GuestsPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Guest?"
+        description="This will permanently remove this guest."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

@@ -38,6 +38,7 @@ import {
   Sell as RatePlanIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Property = {
   id: string;
@@ -80,6 +81,7 @@ export default function RatePlansPage() {
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   async function loadData() {
     setError(null);
@@ -181,13 +183,15 @@ export default function RatePlansPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this rate plan?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`rate-plans/${id}`, { method: "DELETE" });
+      await apiJson(`rate-plans/${deleteId}`, { method: "DELETE" });
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -504,7 +508,7 @@ export default function RatePlansPage() {
                           </IconButton>
                           <IconButton 
                             size="small" 
-                            onClick={() => handleDelete(plan.id)}
+                            onClick={() => setDeleteId(plan.id)}
                             sx={{
                               bgcolor: alpha(tokens.colors.error.main, 0.08),
                               color: tokens.colors.error.main,
@@ -537,6 +541,15 @@ export default function RatePlansPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Rate Plan?"
+        description="This will permanently remove this rate plan."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

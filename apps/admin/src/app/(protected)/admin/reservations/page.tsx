@@ -22,6 +22,7 @@ import {
   Alert,
   Paper,
   Stack,
+  TablePagination,
   alpha,
 } from "@mui/material";
 import {
@@ -38,6 +39,7 @@ import {
   DoNotDisturb as CancelledIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Reservation = {
   id: string;
@@ -95,6 +97,19 @@ const STATUS_CONFIG: Record<string, {
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [cancelId, setCancelId] = useState<string | null>(null);
+
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -131,13 +146,15 @@ export default function ReservationsPage() {
     }
   }
 
-  async function handleCancel(id: string) {
-    if (!confirm("Cancel this reservation?")) return;
+  async function handleCancel() {
+    if (!cancelId) return;
     try {
-      await apiJson(`reservations/${id}/cancel`, { method: "POST" });
+      await apiJson(`reservations/${cancelId}/cancel`, { method: "POST" });
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setCancelId(null);
     }
   }
 
@@ -184,7 +201,7 @@ export default function ReservationsPage() {
           overflow: 'hidden',
         }}
       >
-        <TableContainer component={Paper} elevation={0}>
+        <TableContainer component={Paper} elevation={0} sx={{ height: 400 }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -222,7 +239,9 @@ export default function ReservationsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                reservations.map((res, index) => {
+                reservations
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((res, index) => {
                   const statusConfig = STATUS_CONFIG[res.status] || STATUS_CONFIG.PENDING;
                   return (
                     <TableRow 
@@ -367,7 +386,7 @@ export default function ReservationsPage() {
 
                               <Tooltip title="Cancel" arrow>
                                 <IconButton
-                                  onClick={() => handleCancel(res.id)}
+                                  onClick={() => setCancelId(res.id)}
                                   size="small"
                                   sx={{
                                     bgcolor: alpha(tokens.colors.error.main, 0.08),
@@ -391,7 +410,29 @@ export default function ReservationsPage() {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={reservations.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            borderTop: `1px solid ${tokens.colors.grey[200]}`,
+            backgroundColor: tokens.colors.grey[50],
+          }}
+        />
       </Card>
+      <ConfirmDialog
+        open={!!cancelId}
+        onClose={() => setCancelId(null)}
+        onConfirm={handleCancel}
+        title="Cancel Reservation?"
+        description="This will cancel the reservation. This action cannot be undone."
+        confirmText="Cancel Reservation"
+        variant="warning"
+      />
     </Box>
   );
 }

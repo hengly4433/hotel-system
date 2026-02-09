@@ -37,6 +37,7 @@ import {
   Category as RoomTypeIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Property = {
   id: string;
@@ -82,6 +83,7 @@ export default function RoomTypesPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -168,13 +170,15 @@ export default function RoomTypesPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this room type?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`room-types/${id}`, { method: "DELETE" });
+      await apiJson(`room-types/${deleteId}`, { method: "DELETE" });
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -682,7 +686,7 @@ export default function RoomTypesPage() {
                           </IconButton>
                           <IconButton 
                             size="small" 
-                            onClick={() => handleDelete(roomType.id)}
+                            onClick={() => setDeleteId(roomType.id)}
                             sx={{
                               bgcolor: alpha(tokens.colors.error.main, 0.08),
                               color: tokens.colors.error.main,
@@ -714,6 +718,15 @@ export default function RoomTypesPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Room Type?"
+        description="This will permanently remove this room type."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

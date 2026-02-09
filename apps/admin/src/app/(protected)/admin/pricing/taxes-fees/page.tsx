@@ -39,6 +39,7 @@ import {
   Receipt as TaxIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Property = {
   id: string;
@@ -74,6 +75,7 @@ export default function TaxesFeesPage() {
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   async function loadData() {
     setError(null);
@@ -158,13 +160,15 @@ export default function TaxesFeesPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this tax/fee?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`taxes-fees/${id}`, { method: "DELETE" });
+      await apiJson(`taxes-fees/${deleteId}`, { method: "DELETE" });
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -471,7 +475,7 @@ export default function TaxesFeesPage() {
                           </IconButton>
                           <IconButton 
                             size="small" 
-                            onClick={() => handleDelete(item.id)}
+                            onClick={() => setDeleteId(item.id)}
                             sx={{
                               bgcolor: alpha(tokens.colors.error.main, 0.08),
                               color: tokens.colors.error.main,
@@ -504,6 +508,15 @@ export default function TaxesFeesPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Tax/Fee?"
+        description="This will permanently remove this tax or fee."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

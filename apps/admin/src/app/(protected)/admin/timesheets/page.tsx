@@ -31,6 +31,8 @@ import {
   Schedule as TimesheetIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/contexts/ToastContext";
 
 type Property = {
   id: string;
@@ -67,6 +69,8 @@ export default function TimesheetsPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   const loadLookups = useCallback(async () => {
     try {
@@ -119,13 +123,16 @@ export default function TimesheetsPage() {
     [properties, selectedPropertyId]
   );
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this timesheet?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`timesheets/${id}`, { method: "DELETE" });
+      await apiJson(`timesheets/${deleteId}`, { method: "DELETE" });
+      showSuccess("Timesheet deleted successfully");
       await loadTimesheets(selectedPropertyId);
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -283,7 +290,7 @@ export default function TimesheetsPage() {
                               </IconButton>
                               <IconButton 
                                 size="small" 
-                                onClick={() => handleDelete(timesheet.id)}
+                                onClick={() => setDeleteId(timesheet.id)}
                                 sx={{
                                   bgcolor: alpha(tokens.colors.error.main, 0.08),
                                   color: tokens.colors.error.main,
@@ -317,6 +324,15 @@ export default function TimesheetsPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Timesheet?"
+        description="This will permanently remove this timesheet."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

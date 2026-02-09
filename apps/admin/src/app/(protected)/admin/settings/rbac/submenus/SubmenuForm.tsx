@@ -17,6 +17,7 @@ import { ListAlt as SubmenuIcon } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 
 type Menu = {
+  id: string;
   key: string;
   label: string;
 };
@@ -129,7 +130,7 @@ export default function SubmenuForm({
                 >
                   <MenuItem value="">Select menu</MenuItem>
                   {menus.map((menu) => (
-                    <MenuItem key={menu.key} value={menu.key}>
+                    <MenuItem key={menu.id} value={menu.id}>
                       {menu.label}
                     </MenuItem>
                   ))}

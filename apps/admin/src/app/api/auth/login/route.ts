@@ -7,10 +7,14 @@ export async function POST(req: Request) {
   const { email, password } = await req.json();
 
   let base = process.env.BACKEND_BASE_URL;
-  if (base && !base.includes(".")) {
-    base = `https://${base}.onrender.com`;
-  } else if (base && !base.startsWith("http")) {
-    base = `https://${base}`;
+  // Only transform if it's not already a full URL
+  if (base && !base.startsWith("http://") && !base.startsWith("https://")) {
+    // If it doesn't include a dot, assume it's a Render.com service name
+    if (!base.includes(".")) {
+      base = `https://${base}.onrender.com`;
+    } else {
+      base = `https://${base}`;
+    }
   }
   console.log("DEBUG: Using BACKEND_BASE_URL:", base);
   const prefix = process.env.BACKEND_API_PREFIX || "/api/v1";

@@ -34,6 +34,7 @@ import {
   Cancel as InactiveIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Blog = {
   id: string;
@@ -51,6 +52,7 @@ export default function BlogsPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -75,13 +77,15 @@ export default function BlogsPage() {
     setPage(0);
   };
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this blog post?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`blogs/${id}`, { method: "DELETE" });
+      await apiJson(`blogs/${deleteId}`, { method: "DELETE" });
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -208,7 +212,7 @@ export default function BlogsPage() {
                             <Tooltip title="Delete">
                               <IconButton
                                 size="small"
-                                onClick={() => handleDelete(blog.id)}
+                                onClick={() => setDeleteId(blog.id)}
                                 sx={{
                                   bgcolor: alpha(tokens.colors.error.main, 0.08),
                                   color: tokens.colors.error.main,
@@ -238,6 +242,15 @@ export default function BlogsPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Blog Post?"
+        description="This will permanently remove this blog post."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

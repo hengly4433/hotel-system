@@ -33,10 +33,15 @@ import {
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/contexts/ToastContext";
+
 export default function MenusPage() {
   const router = useRouter();
   const [menus, setMenus] = useState<RbacMenu[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -55,18 +60,22 @@ export default function MenusPage() {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  async function handleDelete(menuId: string) {
-    if (!confirm("Delete this menu?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`rbac/menus/${menuId}`, { method: "DELETE" });
+      await apiJson(`rbac/menus/${deleteId}`, { method: "DELETE" });
+      showSuccess("Menu deleted successfully");
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -109,18 +118,17 @@ export default function MenusPage() {
             borderRadius: '18px', 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
-            overflow: 'hidden',
           }}
         >
-          <TableContainer component={Paper} elevation={0}>
-            <Table>
+          <TableContainer component={Paper} elevation={0} sx={{ height: 400 }}>
+            <Table stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Key</TableCell>
-                  <TableCell>Label</TableCell>
-                  <TableCell>Sort Order</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell sx={{ width: 60, bgcolor: 'background.paper' }}>No</TableCell>
+                  <TableCell sx={{ bgcolor: 'background.paper' }}>Key</TableCell>
+                  <TableCell sx={{ bgcolor: 'background.paper' }}>Label</TableCell>
+                  <TableCell sx={{ bgcolor: 'background.paper' }}>Sort Order</TableCell>
+                  <TableCell align="right" sx={{ bgcolor: 'background.paper' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -200,7 +208,7 @@ export default function MenusPage() {
                         <Tooltip title="Delete">
                           <IconButton 
                             size="small" 
-                            onClick={() => handleDelete(menu.id)}
+                            onClick={() => setDeleteId(menu.id)}
                             sx={{
                               bgcolor: alpha(tokens.colors.error.main, 0.08),
                               color: tokens.colors.error.main,
@@ -216,7 +224,7 @@ export default function MenusPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {menus.length === 0 && (
+          {menus.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} align="center" sx={{ py: 8 }}>
                       <Box sx={{ textAlign: 'center' }}>
@@ -242,19 +250,30 @@ export default function MenusPage() {
               </TableBody>
             </Table>
           </TableContainer>
-          {menus.length > 0 && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={menus.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          )}
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={menus.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            sx={{
+              borderTop: `1px solid ${tokens.colors.grey[200]}`,
+              backgroundColor: tokens.colors.grey[50],
+            }}
+          />
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Menu?"
+        description="This action cannot be undone. The menu and its associated data will be permanently removed."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

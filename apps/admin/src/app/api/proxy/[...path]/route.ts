@@ -8,10 +8,14 @@ async function handler(
   context: { params: Promise<{ path?: string[] }> }
 ) {
   let base = process.env.BACKEND_BASE_URL;
-  if (base && !base.includes(".")) {
-    base = `https://${base}.onrender.com`;
-  } else if (base && !base.startsWith("http")) {
-    base = `https://${base}`;
+  // Only transform if it's not already a full URL
+  if (base && !base.startsWith("http://") && !base.startsWith("https://")) {
+    // If it doesn't include a dot, assume it's a Render.com service name
+    if (!base.includes(".")) {
+      base = `https://${base}.onrender.com`;
+    } else {
+      base = `https://${base}`;
+    }
   }
   const prefix = process.env.BACKEND_API_PREFIX || "/api/v1";
 
@@ -54,6 +58,11 @@ async function handler(
       { code: "PROXY_ERROR", message: "Failed to connect to backend", detail: String(error) },
       { status: 502 }
     );
+  }
+
+  // Handle 204 No Content - cannot have a body
+  if (res.status === 204) {
+    return new NextResponse(null, { status: 204 });
   }
 
   const resBody = await res.arrayBuffer();

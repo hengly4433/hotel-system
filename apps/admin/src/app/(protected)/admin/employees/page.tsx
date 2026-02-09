@@ -36,6 +36,8 @@ import {
   Badge as EmployeeIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/contexts/ToastContext";
 
 type Property = {
   id: string;
@@ -74,6 +76,8 @@ export default function EmployeesPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
     try {
@@ -96,13 +100,16 @@ export default function EmployeesPage() {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this employee?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`employees/${id}`, { method: "DELETE" });
+      await apiJson(`employees/${deleteId}`, { method: "DELETE" });
+      showSuccess("Employee deleted successfully");
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -315,7 +322,7 @@ export default function EmployeesPage() {
                           </IconButton>
                           <IconButton 
                             size="small" 
-                            onClick={() => handleDelete(employee.id)}
+                            onClick={() => setDeleteId(employee.id)}
                             sx={{
                               bgcolor: alpha(tokens.colors.error.main, 0.08),
                               color: tokens.colors.error.main,
@@ -347,6 +354,15 @@ export default function EmployeesPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Employee?"
+        description="This will permanently remove this employee."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

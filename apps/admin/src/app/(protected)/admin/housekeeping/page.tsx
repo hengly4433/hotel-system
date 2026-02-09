@@ -37,6 +37,8 @@ import {
   CleaningServices as HousekeepingIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/contexts/ToastContext";
 
 type Property = {
   id: string;
@@ -95,6 +97,8 @@ export default function HousekeepingPage() {
   const [boardError, setBoardError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
     try {
@@ -134,13 +138,16 @@ export default function HousekeepingPage() {
     properties.find(p => p.id === boardPropertyId) || null,
   [properties, boardPropertyId]);
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this task?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`housekeeping/tasks/${id}`, { method: "DELETE" });
+      await apiJson(`housekeeping/tasks/${deleteId}`, { method: "DELETE" });
+      showSuccess("Task deleted successfully");
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -443,7 +450,7 @@ export default function HousekeepingPage() {
                               </IconButton>
                               <IconButton 
                                 size="small" 
-                                onClick={() => handleDelete(task.id)}
+                                onClick={() => setDeleteId(task.id)}
                                 sx={{
                                   bgcolor: alpha(tokens.colors.error.main, 0.08),
                                   color: tokens.colors.error.main,
@@ -477,6 +484,15 @@ export default function HousekeepingPage() {
           )}
         </Card>
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Task?"
+        description="This will permanently remove this housekeeping task."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }

@@ -17,6 +17,8 @@ import { tokens } from "@/lib/theme";
 import RoomListTable from "./RoomListTable";
 import RoomForm from "./RoomForm";
 import { Room } from "./types";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -28,6 +30,8 @@ export default function RoomsPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -98,28 +102,33 @@ export default function RoomsPage() {
           method: "PUT",
           body: JSON.stringify(payload)
         });
+        showSuccess("Room updated successfully");
       } else {
         await apiJson("rooms", {
           method: "POST",
           body: JSON.stringify(payload)
         });
+        showSuccess("Room created successfully");
       }
       await loadData();
       resetForm();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     } finally {
         setIsSubmitting(false);
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this room?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiJson(`rooms/${id}`, { method: "DELETE" });
+      await apiJson(`rooms/${deleteId}`, { method: "DELETE" });
+      showSuccess("Room deleted successfully");
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -189,7 +198,7 @@ export default function RoomsPage() {
                     onPageChange={handleChangePage}
                     onRowsPerPageChange={handleChangeRowsPerPage}
                     onEdit={startEdit}
-                    onDelete={handleDelete}
+                    onDelete={setDeleteId}
                     getRoomTypeName={getRoomTypeName}
                     getPropertyName={getPropertyName}
                     onAddClick={startAdd}
@@ -198,6 +207,15 @@ export default function RoomsPage() {
           </Fade>
         )}
       </Stack>
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Room?"
+        description="This will permanently remove this room."
+        confirmText="Delete"
+        variant="danger"
+      />
     </Box>
   );
 }
