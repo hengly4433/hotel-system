@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { format } from "date-fns";
 import {
   Box,
   Button,
   Card,
-  CardContent,
-  Grid,
   Stack,
   TextField,
   Table,
@@ -26,7 +28,7 @@ import {
   alpha
 } from "@mui/material";
 import { tokens } from "@/lib/theme";
-import { Search as SearchIcon } from "@mui/icons-material";
+import { Search as SearchIcon, CalendarMonth as CalendarIcon } from "@mui/icons-material";
 
 type Property = { id: string; name: string };
 
@@ -44,13 +46,13 @@ type RoomTypeAvailability = {
   dates: AvailabilityDate[];
 };
 
-const today = new Date().toISOString().slice(0, 10);
+const today = new Date();
 
 export default function RoomAvailabilityPage() {
   const [propertyId, setPropertyId] = useState("");
   const [properties, setProperties] = useState<Property[]>([]);
-  const [from, setFrom] = useState(today);
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState<Date | null>(today);
+  const [to, setTo] = useState<Date | null>(null);
   const [availability, setAvailability] = useState<RoomTypeAvailability[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,10 +69,14 @@ export default function RoomAvailabilityPage() {
   }, [availability]);
 
   const loadAvailability = useCallback(async () => {
+    if (!propertyId || !from || !to) return;
+
     setLoading(true);
     try {
+      const fromStr = format(from, 'yyyy-MM-dd');
+      const toStr = format(to, 'yyyy-MM-dd');
       const data = await apiJson<RoomTypeAvailability[]>(
-        `availability/room-types?propertyId=${propertyId}&from=${from}&to=${to}`
+        `availability/room-types?propertyId=${propertyId}&from=${fromStr}&to=${toStr}`
       );
       setAvailability(data);
       setError(null);
@@ -85,80 +91,82 @@ export default function RoomAvailabilityPage() {
     if (propertyId && from && to) {
       const timer = setTimeout(() => {
         void loadAvailability();
-      }, 0);
+      }, 500); // Debounce
       return () => clearTimeout(timer);
     }
     return undefined;
   }, [propertyId, from, to, loadAvailability]);
 
   return (
-    <main>
+    <Box component="main">
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
       <PageHeader title="Room Type Availability" subtitle="Inventory by room type" />
 
-      <Stack spacing={3}>
-         {error && <Alert severity="error">{error}</Alert>}
+      <Stack spacing={1}>
+         {error && (
+            <Alert severity="error" onClose={() => setError(null)}>
+                {error}
+            </Alert>
+         )}
          
-         <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <CardContent sx={{ p: 3 }}>
-                <Stack spacing={3}>
-                    <Typography variant="h6" fontWeight="bold">
-                        Filter Availability
-                    </Typography>
-                    <Grid container spacing={3} alignItems="flex-end">
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <Autocomplete
-                          id="avail-property-autocomplete"
-                          options={properties}
-                          getOptionLabel={(opt) => opt.name}
-                          isOptionEqualToValue={(a, b) => a.id === b.id}
-                          value={properties.find(p => p.id === propertyId) || null}
-                          onChange={(_, val) => setPropertyId(val?.id || "")}
-                          renderInput={(params) => (
-                            <TextField {...params} label="Property" placeholder="Search property..." />
-                          )}
-                          noOptionsText="No properties found"
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 3 }}>
-                        <TextField
-                          id="avail-from-date"
-                          label="From"
-                          type="date"
-                          value={from}
-                          onChange={(e) => setFrom(e.target.value)}
-                          fullWidth
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 3 }}>
-                        <TextField
-                          id="avail-to-date"
-                          label="To"
-                          type="date"
-                          value={to}
-                          onChange={(e) => setTo(e.target.value)}
-                          fullWidth
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 2 }}>
-                        <Button 
-                            variant="contained" 
-                            fullWidth 
-                            onClick={loadAvailability} 
-                            disabled={loading}
-                            startIcon={<SearchIcon />}
-                            sx={{ height: 56 }}
-                        >
-                          {loading ? "Loading..." : "Load"}
-                        </Button>
-                      </Grid>
-                    </Grid>
-                </Stack>
-            </CardContent>
+         <Card 
+            sx={{ 
+                p: 2, 
+                mb: 1,
+                borderRadius: "18px", 
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`
+            }}
+         >
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+                <Autocomplete
+                    id="avail-property-autocomplete"
+                    options={properties}
+                    getOptionLabel={(opt) => opt.name}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    value={properties.find(p => p.id === propertyId) || null}
+                    onChange={(_, val) => setPropertyId(val?.id || "")}
+                    fullWidth
+                    sx={{ flex: 1, minWidth: 200 }}
+                    renderInput={(params) => (
+                    <TextField 
+                        {...params} 
+                        label="Property" 
+                        placeholder="Search property..." 
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                    />
+                    )}
+                    noOptionsText="No properties found"
+                />
+                <DatePicker
+                    label="From"
+                    value={from}
+                    onChange={(newValue) => setFrom(newValue)}
+                    slotProps={{ textField: { size: 'small', fullWidth: true, sx: { flex: 1, minWidth: 150 } } }}
+                />
+                <DatePicker
+                    label="To"
+                    value={to}
+                    onChange={(newValue) => setTo(newValue)}
+                    slotProps={{ textField: { size: 'small', fullWidth: true, sx: { flex: 1, minWidth: 150 } } }}
+                />
+                <Button 
+                    variant="contained" 
+                    onClick={loadAvailability} 
+                    disabled={loading || !propertyId || !from || !to}
+                    startIcon={<SearchIcon />}
+                    sx={{ 
+                        boxShadow: `0 4px 14px ${tokens.colors.primary.main}30`,
+                        minWidth: 100
+                    }}
+                >
+                    {loading ? "Loading..." : "Load"}
+                </Button>
+            </Stack>
          </Card>
 
-         <Card sx={{ borderRadius: 3, boxShadow: tokens.shadows.card, border: `1px solid ${tokens.colors.grey[200]}`, overflow: 'hidden' }}>
+         <Card sx={{ borderRadius: "18px", boxShadow: tokens.shadows.card, border: `1px solid ${tokens.colors.grey[200]}`, overflow: 'hidden' }}>
             <Box sx={{ p: 3, borderBottom: `1px solid ${tokens.colors.grey[200]}`, bgcolor: 'white' }}>
               <Typography variant="h6" fontWeight="bold">Availability Matrix</Typography>
             </Box>
@@ -315,15 +323,17 @@ export default function RoomAvailabilityPage() {
                         <TableCell 
                           colSpan={3 + dateColumns.length} 
                           align="center" 
-                          sx={{ 
-                            py: 8, 
-                            color: tokens.colors.grey[500],
-                            bgcolor: tokens.colors.grey[50]
-                          }}
+                          sx={{ py: 8 }}
                         >
-                          <Typography variant="body2">
-                            {propertyId && from && to ? "No availability data found" : "Select a property and date range to check availability"}
-                          </Typography>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <CalendarIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                                {propertyId && from && to ? "No availability data found" : "Enter filters to check availability"}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {propertyId && from && to ? "Try adjusting your dates" : "Select property and date range"}
+                            </Typography>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     )}
@@ -332,6 +342,7 @@ export default function RoomAvailabilityPage() {
             </TableContainer>
          </Card>
       </Stack>
-    </main>
+      </LocalizationProvider>
+    </Box>
   );
 }

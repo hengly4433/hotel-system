@@ -7,6 +7,9 @@ import java.util.UUID;
 
 public record UserUpdateRequest(
     @Email String email,
+    String firstName,
+    String lastName,
+    String profileImage,
     UserStatus status,
     UUID propertyId
 ) {

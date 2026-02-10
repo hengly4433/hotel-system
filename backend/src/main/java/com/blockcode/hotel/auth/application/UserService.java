@@ -61,6 +61,9 @@ public class UserService {
     user.setPasswordHash(passwordEncoder.encode(request.password()));
     user.setStatus(request.status() == null ? UserStatus.ACTIVE : request.status());
     user.setPropertyId(request.propertyId());
+    user.setFirstName(request.firstName());
+    user.setLastName(request.lastName());
+    user.setProfileImage(request.profileImage());
 
     userRepository.save(user);
 
@@ -115,6 +118,16 @@ public class UserService {
 
     if (request.propertyId() != null) {
       user.setPropertyId(request.propertyId());
+    }
+
+    if (request.firstName() != null) {
+      user.setFirstName(request.firstName());
+    }
+    if (request.lastName() != null) {
+      user.setLastName(request.lastName());
+    }
+    if (request.profileImage() != null) {
+      user.setProfileImage(request.profileImage());
     }
 
     userRepository.save(user);
@@ -177,6 +190,15 @@ public class UserService {
 
   private UserResponse toResponse(UserEntity user, List<UUID> roleIds) {
     UserResponse base = userMapper.toResponse(user);
-    return new UserResponse(base.id(), base.email(), base.status(), base.propertyId(), roleIds);
+    return new UserResponse(
+        base.id(),
+        base.email(),
+        base.firstName(),
+        base.lastName(),
+        base.profileImage(),
+        base.status(),
+        base.propertyId(),
+        roleIds
+    );
   }
 }

@@ -8,34 +8,25 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
   TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
+  MenuItem,
+  InputAdornment,
+  Tooltip,
   IconButton,
   Alert,
-  Typography,
   Stack,
-  Grid,
-  TablePagination,
-  Collapse,
+  Fade,
   alpha,
-  Autocomplete,
 } from "@mui/material";
 import { 
-  Edit as EditIcon, 
-  Delete as DeleteIcon, 
   Add as AddIcon, 
-  Close as CloseIcon,
-  Policy as PolicyIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import CancellationPolicyForm from "./CancellationPolicyForm";
+import CancellationPolicyListTable from "./CancellationPolicyListTable";
 
 type Property = {
   id: string;
@@ -49,24 +40,20 @@ type CancellationPolicy = {
   rules: string;
 };
 
-const EMPTY_FORM = {
-  propertyId: "",
-  name: "",
-  rules: "{}"
-};
-
 export default function CancellationPoliciesPage() {
   const [policies, setPolicies] = useState<CancellationPolicy[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<CancellationPolicy | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [rulesError, setRulesError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState("ALL");
 
   async function loadData() {
     setError(null);
@@ -86,60 +73,40 @@ export default function CancellationPoliciesPage() {
     loadData();
   }, []);
 
-  const propertyMap = useMemo(() => {
-    const map = new Map<string, string>();
-    properties.forEach((property) => map.set(property.id, property.name));
-    return map;
-  }, [properties]);
+  const getPropertyName = (id: string) => {
+    const property = properties.find((p) => p.id === id);
+    return property?.name || "Unknown";
+  };
 
-  const selectedProperty = useMemo(() => 
-    properties.find(p => p.id === form.propertyId) || null,
-  [properties, form.propertyId]);
+  function startEdit(item: CancellationPolicy) {
+    setEditingItem(item);
+    setShowForm(true);
+  }
 
-  function startEdit(policy: CancellationPolicy) {
-    setEditingId(policy.id);
-    setForm({
-      propertyId: policy.propertyId,
-      name: policy.name,
-      rules: policy.rules || "{}"
-    });
-    setRulesError(null);
+  function startAdd() {
+    setEditingItem(null);
     setShowForm(true);
   }
 
   function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setRulesError(null);
+    setEditingItem(null);
     setShowForm(false);
-  }
-
-  function validateRulesJson(value: string) {
-    try {
-      JSON.parse(value);
-      setRulesError(null);
-      return true;
-    } catch {
-      setRulesError("Rules must be valid JSON.");
-      return false;
-    }
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!validateRulesJson(form.rules)) return;
-    setLoading(true);
     setError(null);
+  }
+
+  async function handleSubmit(data: any) {
+    setError(null);
+    setIsSubmitting(true);
 
     const payload = {
-      propertyId: form.propertyId,
-      name: form.name,
-      rules: form.rules
+      propertyId: data.propertyId,
+      name: data.name,
+      rules: data.rules
     };
 
     try {
-      if (editingId) {
-        await apiJson(`cancellation-policies/${editingId}`, {
+      if (editingItem) {
+        await apiJson(`cancellation-policies/${editingItem.id}`, {
           method: "PUT",
           body: JSON.stringify(payload)
         });
@@ -155,7 +122,7 @@ export default function CancellationPoliciesPage() {
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -171,6 +138,38 @@ export default function CancellationPoliciesPage() {
     }
   }
 
+  const filteredPolicies = useMemo(() => {
+    return policies.filter((item) => {
+      // 1. Property Filter
+      if (propertyFilter !== "ALL" && item.propertyId !== propertyFilter) {
+        return false;
+      }
+
+      // 2. Search Query (Name)
+      if (searchQuery) {
+        if (!item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [policies, propertyFilter, searchQuery]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setPropertyFilter("ALL");
+  };
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   return (
     <Box component="main">
       <PageHeader 
@@ -181,7 +180,7 @@ export default function CancellationPoliciesPage() {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setShowForm(true)}
+              onClick={startAdd}
               sx={{
                 boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
               }}
@@ -199,242 +198,87 @@ export default function CancellationPoliciesPage() {
           </Alert>
         )}
 
-        {/* Collapsible Form */}
-        <Collapse in={showForm}>
-          <Card 
-            sx={{ 
-              borderRadius: 3, 
-              boxShadow: tokens.shadows.card,
-              border: `1px solid ${tokens.colors.grey[200]}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Box
+        {showForm ? (
+          <Fade in={showForm}>
+            <Box>
+              <CancellationPolicyForm
+                initialData={editingItem}
+                properties={properties}
+                onSubmit={handleSubmit}
+                onCancel={resetForm}
+                isSubmitting={isSubmitting}
+              />
+            </Box>
+          </Fade>
+        ) : (
+          <Fade in={!showForm}>
+            <Box>
+              {/* Filters Toolbar */}
+              <Card
                 sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 4,
+                  p: 2,
+                  mb: 1,
+                  borderRadius: "18px",
+                  boxShadow: tokens.shadows.card,
+                  border: `1px solid ${tokens.colors.grey[200]}`,
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+                  <TextField
+                    placeholder="Search name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    size="small"
+                    fullWidth
+                    sx={{ flex: 2 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" color="action" />
+                        </InputAdornment>
+                      ),
                     }}
+                  />
+
+                  <TextField
+                    select
+                    label="Property"
+                    value={propertyFilter}
+                    onChange={(e) => setPropertyFilter(e.target.value)}
+                    size="small"
+                    sx={{ minWidth: 200, flex: 1 }}
+                    fullWidth
                   >
-                    <PolicyIcon sx={{ color: tokens.colors.primary.main }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      {editingId ? "Edit Policy" : "Create New Policy"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {editingId ? "Update policy details" : "Add a new cancellation policy"}
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton 
-                  onClick={resetForm} 
-                  size="small"
-                  sx={{
-                    bgcolor: tokens.colors.grey[100],
-                    '&:hover': { bgcolor: tokens.colors.grey[200] }
-                  }}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
+                    <MenuItem value="ALL">All Properties</MenuItem>
+                    {properties.map((prop) => (
+                      <MenuItem key={prop.id} value={prop.id}>
+                        {prop.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
 
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      options={properties}
-                      getOptionLabel={(option) => option.name}
-                      value={selectedProperty}
-                      onChange={(_, newValue) => {
-                        setForm({ ...form, propertyId: newValue?.id || "" });
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Property"
-                          required
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      )}
-                      isOptionEqualToValue={(option, value) => option.id === value.id}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      label="Name"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      required
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      label="Rules (JSON)"
-                      multiline
-                      rows={6}
-                      value={form.rules}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setForm({ ...form, rules: value });
-                        validateRulesJson(value);
-                      }}
-                      error={!!rulesError}
-                      helperText={rulesError}
-                      required
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                      InputProps={{ style: { fontFamily: 'monospace' } }}
-                    />
-                  </Grid>
+                  <Tooltip title="Clear Filters">
+                    <IconButton onClick={clearFilters} sx={{ bgcolor: tokens.colors.grey[100] }}>
+                      <ClearIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Card>
 
-                  <Grid size={{ xs: 12 }}>
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
-                      <Button variant="outlined" onClick={resetForm}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        variant="contained" 
-                        disabled={loading}
-                        sx={{
-                          boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-                        }}
-                      >
-                        {loading ? "Saving..." : editingId ? "Update Policy" : "Create Policy"}
-                      </Button>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-            </CardContent>
-          </Card>
-        </Collapse>
-
-        {/* Table */}
-        <Card 
-          sx={{ 
-            borderRadius: 3, 
-            boxShadow: tokens.shadows.card,
-            border: `1px solid ${tokens.colors.grey[200]}`,
-            overflow: 'hidden',
-          }}
-        >
-          <TableContainer component={Paper} elevation={0}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Property</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {policies.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <PolicyIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
-                        <Typography variant="h6" color="text.secondary" gutterBottom>
-                          No policies found
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Create your first cancellation policy
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
-                          size="small"
-                        >
-                          Add Policy
-                        </Button>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  policies
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((policy, index) => (
-                    <TableRow 
-                      key={policy.id} 
-                      hover
-                      sx={{
-                        '&:hover': {
-                          bgcolor: alpha(tokens.colors.primary.main, 0.02),
-                        }
-                      }}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {page * rowsPerPage + index + 1}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 500 }}>{policy.name}</TableCell>
-                      <TableCell>{propertyMap.get(policy.propertyId) || policy.propertyId}</TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => startEdit(policy)}
-                            sx={{
-                              bgcolor: alpha(tokens.colors.primary.main, 0.08),
-                              color: tokens.colors.primary.main,
-                              '&:hover': { bgcolor: alpha(tokens.colors.primary.main, 0.15) }
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton 
-                            size="small" 
-                            onClick={() => setDeleteId(policy.id)}
-                            sx={{
-                              bgcolor: alpha(tokens.colors.error.main, 0.08),
-                              color: tokens.colors.error.main,
-                              '&:hover': { bgcolor: alpha(tokens.colors.error.main, 0.15) }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {policies.length > 0 && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={policies.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={(_, newPage) => setPage(newPage)}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-            />
-          )}
-        </Card>
+              <CancellationPolicyListTable
+                items={filteredPolicies}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                onEdit={startEdit}
+                onDelete={setDeleteId}
+                getPropertyName={getPropertyName}
+                onAddClick={startAdd}
+              />
+            </Box>
+          </Fade>
+        )}
       </Stack>
       <ConfirmDialog
         open={!!deleteId}

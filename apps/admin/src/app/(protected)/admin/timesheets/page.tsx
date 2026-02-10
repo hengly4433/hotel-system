@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -9,30 +8,27 @@ import {
   Box,
   Button,
   Card,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Alert,
+  CardContent,
+  TextField,
   Typography,
+  Alert,
   Stack,
-  Chip,
-  TablePagination,
   alpha,
+  MenuItem,
+  Grid,
+  InputAdornment,
+  Collapse,
 } from "@mui/material";
 import { 
-  Edit as EditIcon, 
-  Delete as DeleteIcon, 
   Add as AddIcon, 
-  Schedule as TimesheetIcon,
+  Search as SearchIcon, // Although we use date filter, search icon might be used for text search if added
+  Clear as ClearIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
+import TimesheetForm, { TimesheetFormData } from "./TimesheetForm";
+import TimesheetListTable from "./TimesheetListTable";
 
 type Property = {
   id: string;
@@ -60,16 +56,27 @@ type Timesheet = {
   notes: string | null;
 };
 
+const STATUSES = ["OPEN", "SUBMITTED", "APPROVED", "REJECTED"] as const;
+
 export default function TimesheetsPage() {
-  const router = useRouter();
+  const [view, setView] = useState<'list' | 'form'>('list');
+  const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
+
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Filters
+  const [propertyFilter, setPropertyFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { showSuccess, showError } = useToast();
 
   const loadLookups = useCallback(async () => {
@@ -80,14 +87,14 @@ export default function TimesheetsPage() {
       ]);
       setProperties(propertiesData);
       setEmployees(employeesData);
-      if (!selectedPropertyId && propertiesData.length > 0) {
-        setSelectedPropertyId(propertiesData[0].id);
+      if (!propertyFilter && propertiesData.length > 0) {
+        setPropertyFilter(propertiesData[0].id);
       }
       setError(null);
     } catch (err) {
       setError(getErrorMessage(err));
     }
-  }, [selectedPropertyId]);
+  }, [propertyFilter]);
 
   const loadTimesheets = useCallback(
     async (propertyId: string) => {
@@ -104,31 +111,33 @@ export default function TimesheetsPage() {
   );
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadLookups();
-    }, 0);
-    return () => clearTimeout(timer);
+    void loadLookups();
   }, [loadLookups]);
 
   useEffect(() => {
-    if (!selectedPropertyId) return undefined;
-    const timer = setTimeout(() => {
-      void loadTimesheets(selectedPropertyId);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [loadTimesheets, selectedPropertyId]);
+    if (propertyFilter) {
+      void loadTimesheets(propertyFilter);
+    }
+  }, [loadTimesheets, propertyFilter]);
 
-  const selectedProperty = useMemo(
-    () => properties.find((p) => p.id === selectedPropertyId) || null,
-    [properties, selectedPropertyId]
-  );
+  const filteredTimesheets = useMemo(() => {
+    return timesheets.filter((t) => {
+      const matchesDate = !dateFilter || t.workDate === dateFilter;
+      const matchesStatus = statusFilter === "all" || t.status === statusFilter;
+      const matchesEmployee = employeeFilter === "all" || t.employeeId === employeeFilter;
+
+      return matchesDate && matchesStatus && matchesEmployee;
+    });
+  }, [timesheets, dateFilter, statusFilter, employeeFilter]);
 
   async function handleDelete() {
     if (!deleteId) return;
     try {
       await apiJson(`timesheets/${deleteId}`, { method: "DELETE" });
       showSuccess("Timesheet deleted successfully");
-      await loadTimesheets(selectedPropertyId);
+      if (propertyFilter) {
+        await loadTimesheets(propertyFilter);
+      }
     } catch (err) {
       showError(getErrorMessage(err));
     } finally {
@@ -151,179 +160,216 @@ export default function TimesheetsPage() {
     }
   }
 
+  // Form Handlers
+  const handleCreate = () => {
+    setSelectedTimesheet(null);
+    setView('form');
+  };
+
+  const handleEdit = (timesheet: Timesheet) => {
+    setSelectedTimesheet(timesheet);
+    setView('form');
+  };
+
+  const handleFormSubmit = async (formData: TimesheetFormData) => {
+    setIsSubmitting(true);
+    try {
+        if (selectedTimesheet) {
+            await apiJson(`timesheets/${selectedTimesheet.id}`, {
+                method: "PUT",
+                body: JSON.stringify(formData),
+            });
+            showSuccess("Timesheet updated successfully");
+        } else {
+            await apiJson("timesheets", {
+                method: "POST",
+                body: JSON.stringify(formData),
+            });
+            showSuccess("Timesheet created successfully");
+        }
+        if (propertyFilter) {
+            await loadTimesheets(propertyFilter);
+        }
+        setView('list');
+    } catch (err) {
+        showError(getErrorMessage(err));
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const clearFilters = () => {
+    setDateFilter("");
+    setStatusFilter("all");
+    setEmployeeFilter("all");
+    // We don't clear propertyFilter as it is mandatory/primary
+  };
+
   return (
     <Box component="main">
-      <PageHeader 
-        title="Timesheets" 
-        subtitle="Track employee shifts and hours"
-        action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => router.push("/admin/timesheets/new")}
-            sx={{
-              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-            }}
-          >
-            New Timesheet
-          </Button>
-        }
-      />
-      
       <Stack spacing={3}>
-        {error && (
-          <Alert severity="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Table */}
-        <Card 
-          sx={{ 
-            borderRadius: 3, 
-            boxShadow: tokens.shadows.card,
-            border: `1px solid ${tokens.colors.grey[200]}`,
-            overflow: 'hidden',
-          }}
-        >
-          <TableContainer component={Paper} elevation={0}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Employee</TableCell>
-                  <TableCell>Shift</TableCell>
-                  <TableCell>Clock In</TableCell>
-                  <TableCell>Clock Out</TableCell>
-                  <TableCell>Minutes</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {timesheets.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <TimesheetIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
-                        <Typography variant="h6" color="text.secondary" gutterBottom>
-                          No timesheets found
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Create your first time entry
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => router.push("/admin/timesheets/new")}
-                          size="small"
-                        >
-                          Add Timesheet
-                        </Button>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  timesheets
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((timesheet, index) => {
-                      const statusStyle = getStatusColor(timesheet.status);
-                      return (
-                        <TableRow 
-                          key={timesheet.id} 
-                          hover
-                          sx={{
-                            '&:hover': {
-                              bgcolor: alpha(tokens.colors.primary.main, 0.02),
-                            }
-                          }}
-                        >
-                          <TableCell>
-                            <Typography variant="body2" color="text.secondary">
-                              {page * rowsPerPage + index + 1}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 500 }}>{timesheet.workDate}</TableCell>
-                          <TableCell>{employeeLabel(timesheet.employeeId)}</TableCell>
-                          <TableCell>{timesheet.shift}</TableCell>
-                          <TableCell>
-                            {timesheet.clockIn ? new Date(timesheet.clockIn).toLocaleString() : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {timesheet.clockOut ? new Date(timesheet.clockOut).toLocaleString() : "-"}
-                          </TableCell>
-                          <TableCell>
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
-                                fontFamily: 'monospace',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {timesheet.totalMinutes}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={timesheet.status} 
-                              size="small" 
-                              sx={{ 
-                                bgcolor: statusStyle.bg, 
-                                color: statusStyle.color,
-                                fontWeight: 600,
-                              }} 
-                            />
-                          </TableCell>
-                          <TableCell align="right">
-                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                              <IconButton 
-                                size="small" 
-                                onClick={() => router.push(`/admin/timesheets/${timesheet.id}`)}
-                                sx={{
-                                  bgcolor: alpha(tokens.colors.primary.main, 0.08),
-                                  color: tokens.colors.primary.main,
-                                  '&:hover': { bgcolor: alpha(tokens.colors.primary.main, 0.15) }
-                                }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton 
-                                size="small" 
-                                onClick={() => setDeleteId(timesheet.id)}
-                                sx={{
-                                  bgcolor: alpha(tokens.colors.error.main, 0.08),
-                                  color: tokens.colors.error.main,
-                                  '&:hover': { bgcolor: alpha(tokens.colors.error.main, 0.15) }
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
+        <PageHeader 
+            title="Timesheets" 
+            subtitle="Track employee shifts and hours"
+            action={
+            view === 'list' ? (
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleCreate}
+                    sx={{
+                        boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+                    }}
+                >
+                    New Timesheet
+                </Button>
+            ) : null
+            }
+        />
+        
+        <Collapse in={!!error}>
+            <Box mb={3}>
+                {error && (
+                <Typography color="error" variant="body2" sx={{ bgcolor: alpha(tokens.colors.error.main, 0.1), p: 2, borderRadius: 2 }}>
+                    {error}
+                </Typography>
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {timesheets.length > 0 && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={timesheets.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={(_, newPage) => setPage(newPage)}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
+            </Box>
+        </Collapse>
+
+        {view === 'list' ? (
+            <>
+            {/* Filters */}
+            <Card 
+              sx={{ 
+                borderRadius: "18px", 
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`,
               }}
+            >
+              <CardContent sx={{ p: 2 }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <TextField
+                        select
+                        fullWidth
+                        label="Property"
+                        value={propertyFilter}
+                        onChange={(e) => setPropertyFilter(e.target.value)}
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        >
+                        {properties.map((p) => (
+                            <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                        ))}
+                        </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 2 }}>
+                         <TextField
+                            type="date"
+                            fullWidth
+                            label="Date"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            size="small"
+                            InputLabelProps={{ shrink: true }}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 2 }}>
+                        <TextField
+                        select
+                        fullWidth
+                        label="Status"
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        >
+                        <MenuItem value="all">All Statuses</MenuItem>
+                        {STATUSES.map((s) => (
+                            <MenuItem key={s} value={s}>{s}</MenuItem>
+                        ))}
+                        </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <TextField
+                        select
+                        fullWidth
+                        label="Employee"
+                        value={employeeFilter}
+                        onChange={(e) => setEmployeeFilter(e.target.value)}
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        >
+                        <MenuItem value="all">All Employees</MenuItem>
+                        {employees.map((e) => (
+                            <MenuItem key={e.id} value={e.id}>{e.firstName} {e.lastName}</MenuItem>
+                        ))}
+                        </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 2 }}>
+                        <Button
+                            fullWidth
+                            variant="outlined"
+                            onClick={clearFilters}
+                            sx={{ height: 40 }}
+                        >
+                            <ClearIcon fontSize="small" />
+                        </Button>
+                    </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+
+            {/* List Table */}
+            <Card 
+              sx={{ 
+                borderRadius: "18px", 
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`,
+                overflow: 'hidden',
+              }}
+            >
+                <TimesheetListTable
+                    items={filteredTimesheets}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value, 10));
+                        setPage(0);
+                    }}
+                    onEdit={handleEdit}
+                    onDelete={(id) => setDeleteId(id)}
+                    getEmployeeLabel={employeeLabel}
+                    getStatusColor={getStatusColor}
+                    onAddClick={handleCreate}
+                />
+            </Card>
+            </>
+        ) : (
+            <TimesheetForm
+                initialData={selectedTimesheet ? {
+                    propertyId: selectedTimesheet.propertyId,
+                    employeeId: selectedTimesheet.employeeId,
+                    workDate: selectedTimesheet.workDate,
+                    shift: selectedTimesheet.shift,
+                    clockIn: selectedTimesheet.clockIn || "",
+                    clockOut: selectedTimesheet.clockOut || "",
+                    breakMinutes: selectedTimesheet.breakMinutes?.toString() || "0",
+                    status: selectedTimesheet.status,
+                    notes: selectedTimesheet.notes || ""
+                } : undefined}
+                properties={properties}
+                employees={employees}
+                onSubmit={handleFormSubmit}
+                onCancel={() => setView('list')}
+                isEditing={!!selectedTimesheet}
+                isSubmitting={isSubmitting}
             />
-          )}
-        </Card>
+        )}
       </Stack>
+
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}

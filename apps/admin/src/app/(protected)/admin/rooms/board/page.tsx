@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
+import { tokens } from "@/lib/theme";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { format } from "date-fns";
 
 import {
   Box,
   Button,
   Card,
-  CardContent,
-  Grid,
   Stack,
   TextField,
   Table,
@@ -22,20 +25,27 @@ import {
   Paper,
   Alert,
   Typography,
-  Autocomplete
+  Autocomplete,
+  Chip
 } from "@mui/material";
-import { Search as SearchIcon } from "@mui/icons-material";
+import { Search as SearchIcon, CalendarMonth as CalendarIcon } from "@mui/icons-material";
 
 type Property = { id: string; name: string };
 
-const today = new Date().toISOString().slice(0, 10);
+type BoardRow = {
+  roomId: string;
+  roomNumber: string;
+  dates: string[];
+};
+
+const today = new Date();
 
 export default function RoomBoardPage() {
   const [propertyId, setPropertyId] = useState("");
   const [properties, setProperties] = useState<Property[]>([]);
-  const [from, setFrom] = useState(today);
-  const [to, setTo] = useState("");
-  const [board, setBoard] = useState<any[]>([]);
+  const [from, setFrom] = useState<Date | null>(today);
+  const [to, setTo] = useState<Date | null>(null);
+  const [board, setBoard] = useState<BoardRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -46,10 +56,14 @@ export default function RoomBoardPage() {
   }, []);
 
   const loadBoard = useCallback(async () => {
+    if (!propertyId || !from || !to) return;
+    
     setLoading(true);
     try {
-      const data = await apiJson<any[]>(
-        `inventory/rooms?propertyId=${propertyId}&from=${from}&to=${to}`
+      const fromStr = format(from, 'yyyy-MM-dd');
+      const toStr = format(to, 'yyyy-MM-dd');
+      const data = await apiJson<BoardRow[]>(
+        `inventory/rooms?propertyId=${propertyId}&from=${fromStr}&to=${toStr}`
       );
       setBoard(data);
       setError(null);
@@ -64,136 +78,149 @@ export default function RoomBoardPage() {
     if (propertyId && from && to) {
       const timer = setTimeout(() => {
         void loadBoard();
-      }, 0);
+      }, 500); // Debounce
       return () => clearTimeout(timer);
     }
     return undefined;
   }, [propertyId, from, to, loadBoard]);
 
   return (
-    <main>
+    <Box component="main">
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
       <PageHeader title="Room Board" subtitle="Occupancy by date" />
       
-      <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+      <Stack spacing={1}>
+        {error && (
+            <Alert severity="error" onClose={() => setError(null)}>
+                {error}
+            </Alert>
+        )}
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Stack spacing={3}>
-                <Typography variant="h6" fontWeight="bold">
-                    Filter Board
-                </Typography>
-                <Grid container spacing={3} alignItems="flex-end">
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Autocomplete
-                      id="board-property-autocomplete"
-                      options={properties}
-                      getOptionLabel={(opt) => opt.name}
-                      isOptionEqualToValue={(a, b) => a.id === b.id}
-                      value={properties.find(p => p.id === propertyId) || null}
-                      onChange={(_, val) => setPropertyId(val?.id || "")}
-                      renderInput={(params) => (
-                        <TextField {...params} label="Property" placeholder="Search property..." />
-                      )}
-                      noOptionsText="No properties found"
+        <Card 
+            sx={{ 
+                p: 2, 
+                mb: 1,
+                borderRadius: "18px", 
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`
+            }}
+        >
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+                <Autocomplete
+                    id="board-property-autocomplete"
+                    options={properties}
+                    getOptionLabel={(opt) => opt.name}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    value={properties.find(p => p.id === propertyId) || null}
+                    onChange={(_, val) => setPropertyId(val?.id || "")}
+                    fullWidth
+                    sx={{ flex: 1, minWidth: 200 }}
+                    renderInput={(params) => (
+                    <TextField 
+                        {...params} 
+                        label="Property" 
+                        placeholder="Search property..." 
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
                     />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 3 }}>
-                    <TextField
-                      id="board-from-date"
-                      label="From"
-                      type="date"
-                      value={from}
-                      onChange={(e) => setFrom(e.target.value)}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 3 }}>
-                    <TextField
-                      id="board-to-date"
-                      label="To"
-                      type="date"
-                      value={to}
-                      onChange={(e) => setTo(e.target.value)}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 2 }}>
-                    <Button 
-                        variant="contained" 
-                        fullWidth 
-                        onClick={loadBoard} 
-                        disabled={loading}
-                        startIcon={<SearchIcon />}
-                        sx={{ height: 56 }}
-                    >
-                      {loading ? "Loading..." : "Load"}
-                    </Button>
-                  </Grid>
-                </Grid>
+                    )}
+                    noOptionsText="No properties found"
+                />
+                <DatePicker
+                    label="From"
+                    value={from}
+                    onChange={(newValue) => setFrom(newValue)}
+                    slotProps={{ textField: { size: 'small', fullWidth: true, sx: { flex: 1, minWidth: 150 } } }}
+                />
+                <DatePicker
+                    label="To"
+                    value={to}
+                    onChange={(newValue) => setTo(newValue)}
+                    slotProps={{ textField: { size: 'small', fullWidth: true, sx: { flex: 1, minWidth: 150 } } }}
+                />
+                <Button 
+                    variant="contained" 
+                    onClick={loadBoard} 
+                    disabled={loading || !propertyId || !from || !to}
+                    startIcon={<SearchIcon />}
+                    sx={{ 
+                        boxShadow: `0 4px 14px ${tokens.colors.primary.main}30`,
+                        minWidth: 100
+                    }}
+                >
+                    {loading ? "Loading..." : "Load"}
+                </Button>
             </Stack>
-          </CardContent>
         </Card>
 
-        <Card sx={{ borderRadius: 3, boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-          <TableContainer component={Paper} elevation={0}>
-             <Box sx={{ p: 3, borderBottom: '1px solid #f0f0f0' }}>
-                 <Typography variant="h6" fontWeight="bold">Occupancy</Typography>
-             </Box>
-            <Table>
-              <TableHead sx={{ bgcolor: "#f8fafc" }}>
+        <Card 
+            sx={{ 
+                borderRadius: "18px", 
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`,
+                overflow: 'hidden'
+            }}
+        >
+          <TableContainer component={Paper} elevation={0} sx={{ height: 340 }}>
+            <Table stickyHeader>
+              <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: "bold" }}>Room</TableCell>
+                  <TableCell sx={{ fontWeight: "bold", width: 120 }}>Room</TableCell>
                   <TableCell sx={{ fontWeight: "bold" }}>Dates Booked</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {board.map((row) => (
-                  <TableRow key={row.roomId} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{row.roomNumber}</TableCell>
-                    <TableCell>
-                         {(row.dates || []).length > 0 ? (
-                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                             {row.dates.map((date: string) => (
-                                 <Paper 
-                                    key={date} 
-                                    elevation={0}
-                                    sx={{ 
-                                        bgcolor: 'primary.50', 
-                                        color: 'primary.700',
-                                        px: 1, 
-                                        py: 0.5, 
-                                        borderRadius: 1,
-                                        fontSize: '0.875rem',
-                                        fontWeight: 500,
-                                        border: '1px solid',
-                                        borderColor: 'primary.100'
-                                    }}
-                                 >
-                                     {date}
-                                 </Paper>
-                             ))}
-                             </Stack>
-                         ) : (
-                             <Typography variant="body2" color="text.secondary">No bookings</Typography>
-                         )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                 {board.length === 0 && !loading && (
+                {board.length === 0 ? (
                   <TableRow>
-                     <TableCell colSpan={2} align="center" sx={{ py: 6, color: "text.secondary" }}>
-                        {propertyId && from && to ? "No occupancy found for criteria" : "Enter filters to view board"}
+                     <TableCell colSpan={2} align="center" sx={{ py: 8 }}>
+                        <Box sx={{ textAlign: 'center' }}>
+                            <CalendarIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                                {propertyId && from && to ? "No occupancy found" : "Enter filters to view board"}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {propertyId && from && to ? "Try adjusting your dates" : "Select property and date range"}
+                            </Typography>
+                        </Box>
                      </TableCell>
                   </TableRow>
-                 )}
+                ) : (
+                    board.map((row) => (
+                    <TableRow key={row.roomId} hover>
+                        <TableCell sx={{ fontWeight: 600 }}>{row.roomNumber}</TableCell>
+                        <TableCell>
+                            {(row.dates || []).length > 0 ? (
+                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                {row.dates.map((date: string) => (
+                                    <Chip
+                                        key={date}
+                                        label={date}
+                                        size="small"
+                                        color="primary"
+                                        variant="outlined"
+                                        sx={{ 
+                                            borderRadius: 1,
+                                            fontWeight: 500,
+                                            bgcolor: 'primary.50',
+                                            borderColor: 'primary.100',
+                                            color: 'primary.700'
+                                        }}
+                                    />
+                                ))}
+                                </Stack>
+                            ) : (
+                                <Typography variant="caption" color="text.secondary">Available</Typography>
+                            )}
+                        </TableCell>
+                    </TableRow>
+                    ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
         </Card>
       </Stack>
-    </main>
+      </LocalizationProvider>
+    </Box>
   );
 }

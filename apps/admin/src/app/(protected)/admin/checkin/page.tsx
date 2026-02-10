@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
+import { useToast } from "@/contexts/ToastContext";
 import {
   Box,
   Card,
@@ -109,6 +110,7 @@ export default function CheckInOutPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
     try {
@@ -131,9 +133,10 @@ export default function CheckInOutPage() {
     setLoading(true);
     try {
       await apiJson(`reservations/${id}/checkin`, { method: "POST" });
+      showSuccess("Guest checked in successfully");
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -143,9 +146,10 @@ export default function CheckInOutPage() {
     setLoading(true);
     try {
       await apiJson(`reservations/${id}/checkout`, { method: "POST" });
+      showSuccess("Guest checked out successfully");
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -165,10 +169,10 @@ export default function CheckInOutPage() {
     
     // Tab filter
     switch (activeTab) {
-      case 0: // Today's Arrivals - CONFIRMED with checkInDate = today
-        return res.status === "CONFIRMED" && res.checkInDate === todayStr;
-      case 1: // Today's Departures - CHECKED_IN with checkOutDate = today
-        return res.status === "CHECKED_IN" && res.checkOutDate === todayStr;
+      case 0: // Arrivals - CONFIRMED with checkInDate <= today (includes late arrivals)
+        return res.status === "CONFIRMED" && res.checkInDate <= todayStr;
+      case 1: // Departures - CHECKED_IN with checkOutDate <= today (includes overstays)
+        return res.status === "CHECKED_IN" && res.checkOutDate <= todayStr;
       case 2: // In-House - CHECKED_IN
         return res.status === "CHECKED_IN";
       case 3: // All Reservations
@@ -184,8 +188,8 @@ export default function CheckInOutPage() {
   );
 
   // Count for tabs
-  const arrivalsCount = reservations.filter(r => r.status === "CONFIRMED" && r.checkInDate === todayStr).length;
-  const departuresCount = reservations.filter(r => r.status === "CHECKED_IN" && r.checkOutDate === todayStr).length;
+  const arrivalsCount = reservations.filter(r => r.status === "CONFIRMED" && r.checkInDate <= todayStr).length;
+  const departuresCount = reservations.filter(r => r.status === "CHECKED_IN" && r.checkOutDate <= todayStr).length;
   const inHouseCount = reservations.filter(r => r.status === "CHECKED_IN").length;
 
   return (
@@ -195,7 +199,7 @@ export default function CheckInOutPage() {
         subtitle="Process arrivals and departures"
       />
       
-      <Stack spacing={3}>
+      <Stack spacing={1}>
         {error && (
           <Alert severity="error" onClose={() => setError(null)}>
             {error}
@@ -203,21 +207,21 @@ export default function CheckInOutPage() {
         )}
 
         {/* Summary Cards */}
-        <Stack direction="row" spacing={3}>
+        <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
           <Card 
             sx={{ 
               flex: 1,
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
           >
-            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Stack direction="row" alignItems="center" spacing={2}>
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
+                    width: 48,
+                    height: 48,
                     borderRadius: 3,
                     bgcolor: alpha("#22c55e", 0.1),
                     display: 'flex',
@@ -225,14 +229,14 @@ export default function CheckInOutPage() {
                     justifyContent: 'center',
                   }}
                 >
-                  <CheckInIcon sx={{ color: "#22c55e", fontSize: 28 }} />
+                  <CheckInIcon sx={{ color: "#22c55e", fontSize: 24 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold">
                     {arrivalsCount}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Arrivals Today
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                    Arrivals
                   </Typography>
                 </Box>
               </Stack>
@@ -242,17 +246,17 @@ export default function CheckInOutPage() {
           <Card 
             sx={{ 
               flex: 1,
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
           >
-            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Stack direction="row" alignItems="center" spacing={2}>
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
+                    width: 48,
+                    height: 48,
                     borderRadius: 3,
                     bgcolor: alpha("#a855f7", 0.1),
                     display: 'flex',
@@ -260,14 +264,14 @@ export default function CheckInOutPage() {
                     justifyContent: 'center',
                   }}
                 >
-                  <CheckOutIcon sx={{ color: "#a855f7", fontSize: 28 }} />
+                  <CheckOutIcon sx={{ color: "#a855f7", fontSize: 24 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold">
                     {departuresCount}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Departures Today
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                    Departures
                   </Typography>
                 </Box>
               </Stack>
@@ -277,17 +281,17 @@ export default function CheckInOutPage() {
           <Card 
             sx={{ 
               flex: 1,
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
           >
-            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Stack direction="row" alignItems="center" spacing={2}>
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
+                    width: 48,
+                    height: 48,
                     borderRadius: 3,
                     bgcolor: alpha("#3b82f6", 0.1),
                     display: 'flex',
@@ -295,14 +299,14 @@ export default function CheckInOutPage() {
                     justifyContent: 'center',
                   }}
                 >
-                  <RoomIcon sx={{ color: "#3b82f6", fontSize: 28 }} />
+                  <RoomIcon sx={{ color: "#3b82f6", fontSize: 24 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold">
                     {inHouseCount}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    In-House Guests
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                    In-House
                   </Typography>
                 </Box>
               </Stack>
@@ -313,29 +317,31 @@ export default function CheckInOutPage() {
         {/* Main Table Card */}
         <Card 
           sx={{ 
-            borderRadius: 3, 
+            borderRadius: "18px", 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
             overflow: 'hidden',
           }}
         >
           {/* Tabs & Search */}
-          <Box sx={{ borderBottom: `1px solid ${tokens.colors.grey[200]}` }}>
+          <Box sx={{ borderBottom: `1px solid ${tokens.colors.grey[200]}`, bgcolor: 'white' }}>
             <Stack 
               direction="row" 
               justifyContent="space-between" 
               alignItems="center"
-              sx={{ px: 3, pt: 2 }}
+              sx={{ px: 2, pt: 0.5 }}
             >
               <Tabs 
                 value={activeTab} 
                 onChange={(_, value) => { setActiveTab(value); setPage(0); }}
                 sx={{
+                  minHeight: 48,
                   '& .MuiTab-root': {
                     textTransform: 'none',
                     fontWeight: 600,
                     minWidth: 'auto',
                     px: 2,
+                    minHeight: 48,
                   },
                 }}
               >
@@ -352,6 +358,7 @@ export default function CheckInOutPage() {
                             fontSize: '0.75rem',
                             bgcolor: alpha("#22c55e", 0.15),
                             color: "#166534",
+                            fontWeight: 600
                           }} 
                         />
                       )}
@@ -371,6 +378,7 @@ export default function CheckInOutPage() {
                             fontSize: '0.75rem',
                             bgcolor: alpha("#a855f7", 0.15),
                             color: "#6b21a8",
+                            fontWeight: 600
                           }} 
                         />
                       )}
@@ -390,6 +398,7 @@ export default function CheckInOutPage() {
                             fontSize: '0.75rem',
                             bgcolor: alpha("#3b82f6", 0.15),
                             color: "#1d4ed8",
+                            fontWeight: 600
                           }} 
                         />
                       )}
@@ -416,36 +425,36 @@ export default function CheckInOutPage() {
             </Stack>
           </Box>
 
-          <TableContainer component={Paper} elevation={0}>
+          <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 0 }}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Reservation Code</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Check-in</TableCell>
-                  <TableCell>Check-out</TableCell>
-                  <TableCell>Guests</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                <TableRow sx={{ bgcolor: alpha(tokens.colors.primary.main, 0.04) }}>
+                  <TableCell sx={{ width: 60, fontWeight: 700, color: tokens.colors.grey[600] }}>NO</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>RESERVATION CODE</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>STATUS</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>CHECK-IN</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>CHECK-OUT</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>GUESTS</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>ACTIONS</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paginatedReservations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <EventIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
-                        <Typography variant="h6" color="text.secondary" gutterBottom>
-                          {activeTab === 0 && "No arrivals for today"}
-                          {activeTab === 1 && "No departures for today"}
-                          {activeTab === 2 && "No guests currently in-house"}
-                          {activeTab === 3 && "No reservations found"}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {activeTab === 3 && searchQuery && "Try a different search term"}
-                        </Typography>
-                      </Box>
-                    </TableCell>
+                     <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                        <Box sx={{ textAlign: 'center' }}>
+                            <EventIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
+                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                                {activeTab === 0 && "No arrivals expected"}
+                                {activeTab === 1 && "No departures expected"}
+                                {activeTab === 2 && "No guests in-house"}
+                                {activeTab === 3 && "No reservations found"}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {searchQuery ? "Try a different search term" : "Check back later"}
+                            </Typography>
+                        </Box>
+                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedReservations.map((reservation, index) => {
@@ -463,7 +472,8 @@ export default function CheckInOutPage() {
                         sx={{
                           '&:hover': {
                             bgcolor: alpha(tokens.colors.primary.main, 0.02),
-                          }
+                          },
+                          cursor: 'pointer'
                         }}
                       >
                         <TableCell>
@@ -482,6 +492,8 @@ export default function CheckInOutPage() {
                               py: 0.5,
                               borderRadius: 1,
                               display: 'inline-block',
+                              color: tokens.colors.grey[800],
+                              letterSpacing: '0.5px'
                             }}
                           >
                             {reservation.code}
@@ -496,20 +508,21 @@ export default function CheckInOutPage() {
                               bgcolor: status.bg,
                               color: status.color,
                               fontWeight: 600,
+                              height: 24,
                               '& .MuiChip-icon': {
                                 color: status.color,
+                                fontSize: 16
                               }
                             }}
                           />
                         </TableCell>
                         <TableCell>
                           <Stack direction="row" alignItems="center" spacing={1}>
-                            <CalendarIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
                             <Typography 
                               variant="body2"
                               sx={{ 
                                 fontWeight: checkIn.isSpecial ? 600 : 400,
-                                color: checkIn.isSpecial ? tokens.colors.primary.main : 'inherit',
+                                color: checkIn.isSpecial ? tokens.colors.primary.main : tokens.colors.grey[700],
                               }}
                             >
                               {checkIn.label}
@@ -518,12 +531,11 @@ export default function CheckInOutPage() {
                         </TableCell>
                         <TableCell>
                           <Stack direction="row" alignItems="center" spacing={1}>
-                            <CalendarIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
                             <Typography 
                               variant="body2"
                               sx={{ 
                                 fontWeight: checkOut.isSpecial ? 600 : 400,
-                                color: checkOut.isSpecial ? tokens.colors.primary.main : 'inherit',
+                                color: checkOut.isSpecial ? tokens.colors.primary.main : tokens.colors.grey[700],
                               }}
                             >
                               {checkOut.label}
@@ -533,9 +545,9 @@ export default function CheckInOutPage() {
                         <TableCell>
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <PersonIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
-                            <Typography variant="body2">
+                            <Typography variant="body2" color={tokens.colors.grey[700]}>
                               {reservation.adults} adult{reservation.adults !== 1 ? 's' : ''}
-                              {reservation.children > 0 && `, ${reservation.children} child${reservation.children !== 1 ? 'ren' : ''}`}
+                              {reservation.children > 0 && `, ${reservation.children} chd`}
                             </Typography>
                           </Stack>
                         </TableCell>
@@ -547,13 +559,15 @@ export default function CheckInOutPage() {
                                   variant="contained"
                                   size="small"
                                   startIcon={<CheckInIcon />}
-                                  onClick={() => handleCheckIn(reservation.id)}
+                                  onClick={(e) => { e.stopPropagation(); handleCheckIn(reservation.id); }}
                                   disabled={loading}
                                   sx={{
                                     bgcolor: "#22c55e",
                                     '&:hover': { bgcolor: "#16a34a" },
                                     textTransform: 'none',
                                     fontWeight: 600,
+                                    boxShadow: 'none',
+                                    borderRadius: 1.5
                                   }}
                                 >
                                   Check-in
@@ -566,13 +580,15 @@ export default function CheckInOutPage() {
                                   variant="contained"
                                   size="small"
                                   startIcon={<CheckOutIcon />}
-                                  onClick={() => handleCheckOut(reservation.id)}
+                                  onClick={(e) => { e.stopPropagation(); handleCheckOut(reservation.id); }}
                                   disabled={loading}
                                   sx={{
                                     bgcolor: "#a855f7",
                                     '&:hover': { bgcolor: "#9333ea" },
                                     textTransform: 'none',
                                     fontWeight: 600,
+                                    boxShadow: 'none',
+                                    borderRadius: 1.5
                                   }}
                                 >
                                   Check-out
@@ -580,8 +596,8 @@ export default function CheckInOutPage() {
                               </Tooltip>
                             )}
                             {!canCheckIn && !canCheckOut && (
-                              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                No action available
+                              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', px: 1 }}>
+                                No action
                               </Typography>
                             )}
                           </Stack>
@@ -606,6 +622,7 @@ export default function CheckInOutPage() {
                 setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
+              sx={{ borderTop: `1px solid ${tokens.colors.grey[200]}` }}
             />
           )}
         </Card>

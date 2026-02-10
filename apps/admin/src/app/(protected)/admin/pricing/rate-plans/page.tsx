@@ -29,6 +29,7 @@ import {
   alpha,
   Chip,
   Autocomplete,
+  InputAdornment,
 } from "@mui/material";
 import { 
   Edit as EditIcon, 
@@ -36,6 +37,7 @@ import {
   Add as AddIcon, 
   Close as CloseIcon,
   Sell as RatePlanIcon,
+  Search as SearchIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -82,6 +84,10 @@ export default function RatePlansPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPropertyId, setFilterPropertyId] = useState("");
 
   async function loadData() {
     setError(null);
@@ -127,6 +133,22 @@ export default function RatePlansPage() {
   const selectedPolicy = useMemo(() => 
     policies.find(p => p.id === form.cancellationPolicyId) || null,
   [policies, form.cancellationPolicyId]);
+
+  // Filtered data
+  const filteredRatePlans = useMemo(() => {
+    return ratePlans.filter(plan => {
+      const matchesSearch = 
+        searchQuery === "" ||
+        plan.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        plan.code.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesProperty = 
+        filterPropertyId === "" || 
+        plan.propertyId === filterPropertyId;
+
+      return matchesSearch && matchesProperty;
+    });
+  }, [ratePlans, searchQuery, filterPropertyId]);
 
   function startEdit(plan: RatePlan) {
     setEditingId(plan.id);
@@ -227,7 +249,7 @@ export default function RatePlansPage() {
         <Collapse in={showForm}>
           <Card 
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
@@ -385,54 +407,108 @@ export default function RatePlansPage() {
           </Card>
         </Collapse>
 
-        {/* Table */}
+        {/* Table Card */}
         <Card 
           sx={{ 
-            borderRadius: 3, 
+            borderRadius: "18px", 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
             overflow: 'hidden',
           }}
         >
+          {/* Filters */}
+          <Box sx={{ p: 2, borderBottom: `1px solid ${tokens.colors.grey[200]}` }}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <TextField
+                placeholder="Search code or name..."
+                size="small"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ width: 300 }}
+              />
+              <Autocomplete
+                options={properties}
+                getOptionLabel={(option) => option.name}
+                value={properties.find(p => p.id === filterPropertyId) || null}
+                onChange={(_, newValue) => {
+                  setFilterPropertyId(newValue?.id || "");
+                  setPage(0);
+                }}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    placeholder="Filter by Property" 
+                    size="small" 
+                    sx={{ minWidth: 200 }}
+                  />
+                )}
+                popupIcon={<SearchIcon sx={{ fontSize: 20 }} />}
+                sx={{ width: 250 }}
+              />
+              {(searchQuery || filterPropertyId) && (
+                <Button 
+                  startIcon={<CloseIcon />} 
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterPropertyId("");
+                    setPage(0);
+                  }}
+                  sx={{ color: tokens.colors.grey[500] }}
+                >
+                  Clear
+                </Button>
+              )}
+            </Stack>
+          </Box>
+
           <TableContainer component={Paper} elevation={0}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Code</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Property</TableCell>
-                  <TableCell>Policy</TableCell>
-                  <TableCell>Refundable</TableCell>
-                  <TableCell>Breakfast</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                <TableRow sx={{ bgcolor: alpha(tokens.colors.primary.main, 0.04) }}>
+                  <TableCell sx={{ width: 60, fontWeight: 700, color: tokens.colors.grey[600] }}>NO</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>CODE</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>NAME</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>PROPERTY</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>POLICY</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>REFUNDABLE</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>BREAKFAST</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>ACTIONS</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {ratePlans.length === 0 ? (
+                {filteredRatePlans.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
                       <Box sx={{ textAlign: 'center' }}>
                         <RatePlanIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
                         <Typography variant="h6" color="text.secondary" gutterBottom>
-                          No rate plans found
+                           No rate plans found
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Create your first pricing plan
+                           {searchQuery || filterPropertyId ? "Try different filters" : "Create your first pricing plan"}
                         </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
-                          size="small"
-                        >
-                          Add Rate Plan
-                        </Button>
+                        {!searchQuery && !filterPropertyId && (
+                          <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => setShowForm(true)}
+                            size="small"
+                          >
+                            Add Rate Plan
+                          </Button>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  ratePlans
+                  filteredRatePlans
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((plan, index) => (
                     <TableRow 
@@ -525,11 +601,11 @@ export default function RatePlansPage() {
               </TableBody>
             </Table>
           </TableContainer>
-          {ratePlans.length > 0 && (
+          {filteredRatePlans.length > 0 && (
             <TablePagination
               rowsPerPageOptions={[5, 10, 25]}
               component="div"
-              count={ratePlans.length}
+              count={filteredRatePlans.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={(_, newPage) => setPage(newPage)}

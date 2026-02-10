@@ -29,6 +29,7 @@ import {
   alpha,
   Collapse,
   Tooltip,
+  InputAdornment,
 } from "@mui/material";
 import { 
   Edit as EditIcon, 
@@ -39,6 +40,7 @@ import {
   Email as EmailIcon,
   Phone as PhoneIcon,
   Star as StarIcon,
+  Search as SearchIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -94,6 +96,7 @@ export default function GuestsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
@@ -203,6 +206,16 @@ export default function GuestsPage() {
     setPage(0);
   };
 
+  const filteredGuests = guests.filter((guest) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      guest.firstName.toLowerCase().includes(query) ||
+      guest.lastName.toLowerCase().includes(query) ||
+      (guest.email && guest.email.toLowerCase().includes(query)) ||
+      (guest.phone && guest.phone.includes(query))
+    );
+  });
+
   function getInitials(firstName: string, lastName: string) {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   }
@@ -252,7 +265,7 @@ export default function GuestsPage() {
         <Collapse in={showForm}>
           <Card 
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
@@ -475,172 +488,197 @@ export default function GuestsPage() {
           </Card>
         </Collapse>
 
-        {/* Table Card */}
         <Card 
           sx={{ 
-            borderRadius: 4, 
+            borderRadius: "18px", 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
             overflow: 'hidden',
           }}
         >
-          <TableContainer component={Paper} elevation={0}>
+          {/* Search */}
+          <Box sx={{ p: 2, borderBottom: `1px solid ${tokens.colors.grey[200]}` }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="subtitle1" fontWeight="bold">
+                Guest List
+              </Typography>
+              <TextField
+                placeholder="Search by name, email, phone..."
+                size="small"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: tokens.colors.grey[400], fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ width: 300 }}
+              />
+            </Stack>
+          </Box>
+
+          <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 0 }}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Guest</TableCell>
-                  <TableCell>Contact</TableCell>
-                  <TableCell>Tier</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                <TableRow sx={{ bgcolor: alpha(tokens.colors.primary.main, 0.04) }}>
+                  <TableCell sx={{ width: 60, fontWeight: 700, color: tokens.colors.grey[600] }}>NO</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>GUEST</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>CONTACT</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>TIER</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>ACTIONS</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {guests
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((guest, index) => (
-                  <TableRow 
-                    key={guest.id} 
-                    hover
-                    sx={{
-                      '&:hover': {
-                        bgcolor: alpha(tokens.colors.primary.main, 0.02),
-                      }
-                    }}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {page * rowsPerPage + index + 1}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar 
-                          sx={{ 
-                            bgcolor: getAvatarColor(guest.firstName),
-                            width: 40,
-                            height: 40,
-                            fontSize: '0.875rem',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {getInitials(guest.firstName, guest.lastName)}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="body2" fontWeight={600}>
-                            {guest.firstName} {guest.lastName}
-                          </Typography>
-                          {guest.city && (
-                            <Typography variant="caption" color="text.secondary">
-                              {guest.city}{guest.country ? `, ${guest.country}` : ''}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        {guest.email && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <EmailIcon sx={{ fontSize: 14, color: tokens.colors.grey[400] }} />
-                            <Typography variant="body2">{guest.email}</Typography>
-                          </Box>
-                        )}
-                        {guest.phone && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <PhoneIcon sx={{ fontSize: 14, color: tokens.colors.grey[400] }} />
-                            <Typography variant="body2">{guest.phone}</Typography>
-                          </Box>
-                        )}
-                        {!guest.email && !guest.phone && (
-                          <Typography variant="body2" color="text.secondary">-</Typography>
-                        )}
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        icon={guest.loyaltyTier !== 'NONE' ? <StarIcon sx={{ fontSize: '14px !important' }} /> : undefined}
-                        label={guest.loyaltyTier} 
-                        size="small"
-                        sx={{
-                          fontWeight: 600,
-                          bgcolor: TIER_COLORS[guest.loyaltyTier]?.bg,
-                          color: TIER_COLORS[guest.loyaltyTier]?.color,
-                          ...(guest.loyaltyTier !== 'NONE' && {
-                            '& .MuiChip-icon': {
-                              color: TIER_COLORS[guest.loyaltyTier]?.color,
-                            }
-                          })
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        <Tooltip title="Edit">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => startEdit(guest)}
-                            sx={{
-                              bgcolor: alpha(tokens.colors.primary.main, 0.08),
-                              color: tokens.colors.primary.main,
-                              '&:hover': {
-                                bgcolor: alpha(tokens.colors.primary.main, 0.15),
-                              }
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => setDeleteId(guest.id)}
-                            sx={{
-                              bgcolor: alpha(tokens.colors.error.main, 0.08),
-                              color: tokens.colors.error.main,
-                              '&:hover': {
-                                bgcolor: alpha(tokens.colors.error.main, 0.15),
-                              }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {guests.length === 0 && (
+                {filteredGuests.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} align="center" sx={{ py: 8 }}>
                       <Box sx={{ textAlign: 'center' }}>
                         <PersonIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
                         <Typography variant="h6" color="text.secondary" gutterBottom>
-                          No guests found
+                           No guests found
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Get started by adding your first guest
+                           {searchQuery ? "Try a different search term" : "Get started by adding your first guest"}
                         </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
-                          size="small"
-                        >
-                          Add Guest
-                        </Button>
+                        {!searchQuery && (
+                          <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => setShowForm(true)}
+                            size="small"
+                          >
+                            Add Guest
+                          </Button>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
+                ) : (
+                  filteredGuests
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((guest, index) => (
+                    <TableRow 
+                      key={guest.id} 
+                      hover
+                      sx={{
+                        '&:hover': {
+                          bgcolor: alpha(tokens.colors.primary.main, 0.02),
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {page * rowsPerPage + index + 1}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Avatar 
+                            sx={{ 
+                              bgcolor: getAvatarColor(guest.firstName),
+                              width: 40,
+                              height: 40,
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {getInitials(guest.firstName, guest.lastName)}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>
+                              {guest.firstName} {guest.lastName}
+                            </Typography>
+                            {guest.city && (
+                              <Typography variant="caption" color="text.secondary">
+                                {guest.city}{guest.country ? `, ${guest.country}` : ''}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          {guest.email && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <EmailIcon sx={{ fontSize: 14, color: tokens.colors.grey[400] }} />
+                              <Typography variant="body2">{guest.email}</Typography>
+                            </Box>
+                          )}
+                          {guest.phone && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <PhoneIcon sx={{ fontSize: 14, color: tokens.colors.grey[400] }} />
+                              <Typography variant="body2">{guest.phone}</Typography>
+                            </Box>
+                          )}
+                          {!guest.email && !guest.phone && (
+                            <Typography variant="body2" color="text.secondary">-</Typography>
+                          )}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          icon={guest.loyaltyTier !== 'NONE' ? <StarIcon sx={{ fontSize: '14px !important' }} /> : undefined}
+                          label={guest.loyaltyTier} 
+                          size="small"
+                          sx={{
+                            fontWeight: 600,
+                            bgcolor: TIER_COLORS[guest.loyaltyTier]?.bg,
+                            color: TIER_COLORS[guest.loyaltyTier]?.color,
+                            ...(guest.loyaltyTier !== 'NONE' && {
+                              '& .MuiChip-icon': {
+                                color: TIER_COLORS[guest.loyaltyTier]?.color,
+                              }
+                            })
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="Edit">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => startEdit(guest)}
+                              sx={{
+                                bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                color: tokens.colors.primary.main,
+                                '&:hover': {
+                                  bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                                }
+                              }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => setDeleteId(guest.id)}
+                              sx={{
+                                bgcolor: alpha(tokens.colors.error.main, 0.08),
+                                color: tokens.colors.error.main,
+                                '&:hover': {
+                                  bgcolor: alpha(tokens.colors.error.main, 0.15),
+                                }
+                              }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
           </TableContainer>
-          {guests.length > 0 && (
+          {filteredGuests.length > 0 && (
             <TablePagination
               rowsPerPageOptions={[5, 10, 25]}
               component="div"
-              count={guests.length}
+              count={filteredGuests.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}

@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +39,7 @@ public class ReportService {
     private final PersonRepository personRepository;
     private final HousekeepingTaskRepository housekeepingTaskRepository;
     private final RoomTypeRepository roomTypeRepository;
+    private final com.blockcode.hotel.reservation.infra.ReservationRoomRepository reservationRoomRepository;
 
     public ReportService(PaymentRepository paymentRepository,
             RoomRepository roomRepository,
@@ -46,7 +48,8 @@ public class ReportService {
             GuestRepository guestRepository,
             PersonRepository personRepository,
             HousekeepingTaskRepository housekeepingTaskRepository,
-            RoomTypeRepository roomTypeRepository) {
+            RoomTypeRepository roomTypeRepository,
+            com.blockcode.hotel.reservation.infra.ReservationRoomRepository reservationRoomRepository) {
         this.paymentRepository = paymentRepository;
         this.roomRepository = roomRepository;
         this.reservationNightRepository = reservationNightRepository;
@@ -55,41 +58,21 @@ public class ReportService {
         this.personRepository = personRepository;
         this.housekeepingTaskRepository = housekeepingTaskRepository;
         this.roomTypeRepository = roomTypeRepository;
+        this.reservationRoomRepository = reservationRoomRepository;
     }
 
     public List<RevenueReportResponse> getRevenueReport(LocalDate fromDate, LocalDate toDate) {
         return paymentRepository.getRevenueReport(
                 fromDate.atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                toDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+                toDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 
     public List<OccupancyReportResponse> getOccupancyReport(LocalDate fromDate, LocalDate toDate) {
         long totalRooms = roomRepository.countActiveRooms();
         List<OccupancyReportResponse> report = new ArrayList<>();
 
-        for (LocalDate date = fromDate; date.isBefore(toDate); date = date.plusDays(1)) {
-            // Using reservationNightRepository to count assignments for all room types
-            // (passing null as roomType)
-            // Note: This relies on the repository handling null or we need to iterate room
-            // types if it doesn't.
-            // Assuming for now we want a total count.
-            // Since `countAssignedByRoomTypeAndDate` takes a UUID, we can't pass null if
-            // it's not handled.
-            // Let's assume we sum up per room type for accuracy or add a method.
-            // For now, let's use a 0 placeholder or a proper query if we can/
-            // Implementation detail: We will implement a simple loop here if needed, or
-            // better,
-            // since we can't change Repo easily now, we'll try to use `findAll` from
-            // ReservationNights if volume is low,
-            // or just set usage to 0 and mark as TODO for repo update.
-            // BUT, to satisfy the user, let's try to get a real number.
-            // We can use `reservationRepository` to check active reservations that cover
-            // this date?
-            // "Occupancy" usually implies "Nights Sold".
-
-            // Simpler fallback: 0 for now.
-            long occupied = 0;
-
+        for (LocalDate date = fromDate; !date.isAfter(toDate); date = date.plusDays(1)) {
+            long occupied = reservationRepository.countActiveReservationsByDate(date);
             double percentage = totalRooms > 0 ? (double) occupied / totalRooms * 100 : 0;
             report.add(new OccupancyReportResponse(date, totalRooms, occupied, percentage));
         }
@@ -128,12 +111,16 @@ public class ReportService {
     private GuestInHouseResponse mapToGuestResponse(ReservationEntity r) {
         String guestName = "Unknown";
         try {
-            if (r.getPrimaryGuestId() != null) {
-                GuestEntity guest = guestRepository.findById(r.getPrimaryGuestId()).orElse(null);
-                if (guest != null && guest.getPersonId() != null) {
-                    PersonEntity person = personRepository.findById(guest.getPersonId()).orElse(null);
-                    if (person != null) {
-                        guestName = person.getFirstName() + " " + person.getLastName();
+            UUID primaryGuestId = r.getPrimaryGuestId();
+            if (primaryGuestId != null) {
+                GuestEntity guest = guestRepository.findById(primaryGuestId).orElse(null);
+                if (guest != null) {
+                    UUID personId = guest.getPersonId();
+                    if (personId != null) {
+                        PersonEntity person = personRepository.findById(personId).orElse(null);
+                        if (person != null) {
+                            guestName = person.getFirstName() + " " + person.getLastName();
+                        }
                     }
                 }
             }
@@ -142,6 +129,22 @@ public class ReportService {
         }
 
         String roomNumber = "TBD";
+        try {
+            List<com.blockcode.hotel.reservation.domain.ReservationRoomEntity> reservationRooms = reservationRoomRepository
+                    .findByReservationId(r.getId());
+            if (!reservationRooms.isEmpty()) {
+                // Assuming one room for now or taking the first one
+                UUID roomId = reservationRooms.get(0).getRoomId();
+                if (roomId != null) {
+                    RoomEntity room = roomRepository.findById(roomId).orElse(null);
+                    if (room != null) {
+                        roomNumber = room.getRoomNumber();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
 
         return new GuestInHouseResponse(
                 r.getId(),
@@ -179,5 +182,11 @@ public class ReportService {
                     status,
                     assignedTo);
         }).collect(Collectors.toList());
+    }
+
+    public long getNewBookingsCount(LocalDate date) {
+        return reservationRepository.countReservationsCreatedBetween(
+                date.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 }

@@ -1,28 +1,94 @@
 "use client";
 
-import { useState } from "react";
-import { Stack } from "@mui/material";
+import { useState, useCallback, useEffect } from "react";
+import { Stack, Box, Card, CardContent, Grid, TextField, Typography } from "@mui/material";
 import PageHeader from "@/components/ui/PageHeader";
-import ReportFilter from "@/components/reports/ReportFilter";
-import ArrivalsReport from "@/components/reports/ArrivalsReport";
 import { format } from "date-fns";
+import { reportsApi, GuestInHouseItem } from "@/lib/api/reports";
+import { tokens } from "@/lib/theme";
+import ArrivalListTable from "./ArrivalListTable";
 
 export default function ArrivalsPage() {
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  
+  const [data, setData] = useState<GuestInHouseItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const fetchData = useCallback(async () => {
+    if (!date) return;
+    
+    setLoading(true);
+    try {
+      const result = await reportsApi.getArrivals(date);
+      setData(result);
+      setPage(0);
+    } catch (err) {
+      console.error("Failed to fetch arrivals report", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [date]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
-    <main>
+    <Box component="main">
       <PageHeader title="Daily Arrivals" subtitle="Guests arriving today" />
       <Stack spacing={3}>
-        <ReportFilter
-          fromDate={date}
-          onFromDateChange={setDate}
-          hideEndDate
-        />
-        <ArrivalsReport
-          date={date ? new Date(date) : null}
-        />
+        {/* Filters */}
+        <Card
+            sx={{
+            borderRadius: "18px",
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            }}
+        >
+            <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Filter Data
+                </Typography>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                            label="Date"
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            size="small"
+                        />
+                    </Grid>
+                </Grid>
+            </CardContent>
+        </Card>
+
+        {/* List Table */}
+        <Card
+            sx={{
+            borderRadius: "18px",
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+            }}
+        >
+            <ArrivalListTable
+                items={data}
+                loading={loading}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                onPageChange={(_, newPage) => setPage(newPage)}
+                onRowsPerPageChange={(e) => {
+                    setRowsPerPage(parseInt(e.target.value, 10));
+                    setPage(0);
+                }}
+            />
+        </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

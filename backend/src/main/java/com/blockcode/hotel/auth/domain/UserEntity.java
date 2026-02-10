@@ -41,6 +41,15 @@ public class UserEntity extends AuditableEntity {
   @Column(name = "last_login_at")
   private Instant lastLoginAt;
 
+  @Column(name = "first_name")
+  private String firstName;
+
+  @Column(name = "last_name")
+  private String lastName;
+
+  @Column(name = "profile_image")
+  private String profileImage;
+
   public UUID getId() {
     return id;
   }
@@ -87,5 +96,29 @@ public class UserEntity extends AuditableEntity {
 
   public void setLastLoginAt(Instant lastLoginAt) {
     this.lastLoginAt = lastLoginAt;
+  }
+
+  public String getFirstName() {
+    return firstName;
+  }
+
+  public void setFirstName(String firstName) {
+    this.firstName = firstName;
+  }
+
+  public String getLastName() {
+    return lastName;
+  }
+
+  public void setLastName(String lastName) {
+    this.lastName = lastName;
+  }
+
+  public String getProfileImage() {
+    return profileImage;
+  }
+
+  public void setProfileImage(String profileImage) {
+    this.profileImage = profileImage;
   }
 }

@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -11,33 +10,25 @@ import {
   Card,
   CardContent,
   TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
   Typography,
   Alert,
   Stack,
-  Avatar,
-  Chip,
-  TablePagination,
   alpha,
   InputAdornment,
+  Grid,
+  MenuItem,
+  Collapse,
 } from "@mui/material";
 import { 
-  Edit as EditIcon, 
-  Delete as DeleteIcon, 
   Add as AddIcon, 
   Search as SearchIcon,
-  Badge as EmployeeIcon,
+  Clear as ClearIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
+import EmployeeForm, { EmployeeFormData } from "./EmployeeForm";
+import EmployeeListTable from "./EmployeeListTable";
 
 type Property = {
   id: string;
@@ -68,15 +59,25 @@ type Employee = {
   employmentStatus: string;
 };
 
+const STATUSES = ["ACTIVE", "INACTIVE", "TERMINATED"] as const;
+
 export default function EmployeesPage() {
-  const router = useRouter();
+  const [view, setView] = useState<'list' | 'form'>('list');
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
@@ -94,11 +95,24 @@ export default function EmployeesPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadData();
-    }, 0);
-    return () => clearTimeout(timer);
+    void loadData();
   }, [loadData]);
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((emp) => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = 
+        emp.firstName.toLowerCase().includes(searchLower) ||
+        emp.lastName.toLowerCase().includes(searchLower) ||
+        (emp.email && emp.email.toLowerCase().includes(searchLower)) ||
+        (emp.phone && emp.phone.includes(searchQuery));
+      
+      const matchesProperty = propertyFilter === "all" || emp.propertyId === propertyFilter;
+      const matchesStatus = statusFilter === "all" || emp.employmentStatus === statusFilter;
+
+      return matchesSearch && matchesProperty && matchesStatus;
+    });
+  }, [employees, searchQuery, propertyFilter, statusFilter]);
 
   async function handleDelete() {
     if (!deleteId) return;
@@ -117,19 +131,6 @@ export default function EmployeesPage() {
     return properties.find((p) => p.id === propertyId)?.name || propertyId;
   }
 
-  async function searchEmployees(value: string) {
-    if (!value) {
-      await loadData();
-      return;
-    }
-    try {
-      const data = await apiJson<Employee[]>(`employees/search?q=${encodeURIComponent(value)}`);
-      setEmployees(data);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  }
-
   function skillsToLabel(skills: string | null) {
     if (!skills) return "-";
     try {
@@ -143,217 +144,216 @@ export default function EmployeesPage() {
     return skills;
   }
 
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
+  // Form Handlers
+  const handleCreate = () => {
+    setSelectedEmployee(null);
+    setView('form');
   };
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+  const handleEdit = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setView('form');
+  };
+
+  const handleFormSubmit = async (formData: EmployeeFormData) => {
+    setIsSubmitting(true);
+    try {
+        if (selectedEmployee) {
+            await apiJson(`employees/${selectedEmployee.id}`, {
+                method: "PUT",
+                body: JSON.stringify(formData),
+            });
+            showSuccess("Employee updated successfully");
+        } else {
+            await apiJson("employees", {
+                method: "POST",
+                body: JSON.stringify(formData),
+            });
+            showSuccess("Employee created successfully");
+        }
+        await loadData();
+        setView('list');
+    } catch (err) {
+        showError(getErrorMessage(err));
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setPropertyFilter("all");
+    setStatusFilter("all");
   };
 
   return (
     <Box component="main">
-      <PageHeader 
-        title="Employees" 
-        subtitle="Staff profiles and management"
-        action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => router.push("/admin/employees/new")}
-            sx={{
-              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-            }}
-          >
-            New Employee
-          </Button>
-        }
-      />
-      
       <Stack spacing={3}>
-        {error && (
-          <Alert severity="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Search Card */}
-        <Card 
-          sx={{ 
-            borderRadius: 3, 
-            boxShadow: tokens.shadows.card,
-            border: `1px solid ${tokens.colors.grey[200]}`,
-          }}
-        >
-          <CardContent sx={{ py: 2 }}>
-            <TextField
-              fullWidth
-              value={query}
-              onChange={(e) => {
-                const value = e.target.value;
-                setQuery(value);
-                searchEmployees(value);
-              }}
-              placeholder="Search by name, email, phone..."
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Table Card */}
-        <Card 
-          sx={{ 
-            borderRadius: 3, 
-            boxShadow: tokens.shadows.card,
-            border: `1px solid ${tokens.colors.grey[200]}`,
-            overflow: 'hidden',
-          }}
-        >
-          <TableContainer component={Paper} elevation={0}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Property</TableCell>
-                  <TableCell>Role</TableCell>
-                  <TableCell>Department</TableCell>
-                  <TableCell>Skills</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {employees.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <EmployeeIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
-                        <Typography variant="h6" color="text.secondary" gutterBottom>
-                          No employees found
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Add your first staff member
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => router.push("/admin/employees/new")}
-                          size="small"
-                        >
-                          Add Employee
-                        </Button>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  employees
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((employee, index) => (
-                    <TableRow 
-                      key={employee.id} 
-                      hover
-                      sx={{
-                        '&:hover': {
-                          bgcolor: alpha(tokens.colors.primary.main, 0.02),
-                        }
-                      }}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {page * rowsPerPage + index + 1}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={2} alignItems="center">
-                          <Avatar src={employee.photoUrl || undefined} alt={employee.firstName}>
-                            {employee.firstName[0]}
-                          </Avatar>
-                          <Typography variant="body2" fontWeight={600}>
-                            {employee.firstName} {employee.lastName}
-                          </Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>{propertyName(employee.propertyId)}</TableCell>
-                      <TableCell>{employee.jobTitle || "-"}</TableCell>
-                      <TableCell>{employee.department || "-"}</TableCell>
-                      <TableCell sx={{ maxWidth: 200 }}>
-                        <Typography variant="body2" noWrap>
-                          {skillsToLabel(employee.skills)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={employee.employmentStatus}
-                          size="small" 
-                          sx={{
-                            bgcolor: employee.employmentStatus === "ACTIVE" 
-                              ? alpha(tokens.colors.success.main, 0.12)
-                              : tokens.colors.grey[100],
-                            color: employee.employmentStatus === "ACTIVE"
-                              ? tokens.colors.success.dark
-                              : tokens.colors.grey[600],
-                            fontWeight: 600,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => router.push(`/admin/employees/${employee.id}`)}
-                            sx={{
-                              bgcolor: alpha(tokens.colors.primary.main, 0.08),
-                              color: tokens.colors.primary.main,
-                              '&:hover': {
-                                bgcolor: alpha(tokens.colors.primary.main, 0.15),
-                              }
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton 
-                            size="small" 
-                            onClick={() => setDeleteId(employee.id)}
-                            sx={{
-                              bgcolor: alpha(tokens.colors.error.main, 0.08),
-                              color: tokens.colors.error.main,
-                              '&:hover': {
-                                bgcolor: alpha(tokens.colors.error.main, 0.15),
-                              }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))
+        <PageHeader 
+            title="Employees" 
+            subtitle="Staff profiles and management"
+            action={
+            view === 'list' ? (
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleCreate}
+                    sx={{
+                        boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+                    }}
+                >
+                    New Employee
+                </Button>
+            ) : null
+            }
+        />
+        
+        <Collapse in={!!error}>
+            <Box mb={3}>
+                {error && (
+                <Typography color="error" variant="body2" sx={{ bgcolor: alpha(tokens.colors.error.main, 0.1), p: 2, borderRadius: 2 }}>
+                    {error}
+                </Typography>
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {employees.length > 0 && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={employees.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
+            </Box>
+        </Collapse>
+
+        {view === 'list' ? (
+            <>
+            {/* Filters */}
+            <Card 
+              sx={{ 
+                borderRadius: "18px", 
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`,
+              }}
+            >
+              <CardContent sx={{ p: 2 }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                        fullWidth
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by name, email, phone..."
+                        size="small"
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                    <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                                    </InputAdornment>
+                                ),
+                            }
+                        }}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <TextField
+                        select
+                        fullWidth
+                        label="Status"
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        >
+                        <MenuItem value="all">All Statuses</MenuItem>
+                        {STATUSES.map((status) => (
+                            <MenuItem key={status} value={status}>
+                            {status}
+                            </MenuItem>
+                        ))}
+                        </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <TextField
+                        select
+                        fullWidth
+                        label="Property"
+                        value={propertyFilter}
+                        onChange={(e) => setPropertyFilter(e.target.value)}
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        >
+                        <MenuItem value="all">All Properties</MenuItem>
+                        {properties.map((p) => (
+                            <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                        ))}
+                        </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 2 }}>
+                        <Button
+                            fullWidth
+                            variant="outlined"
+                            onClick={clearFilters}
+                            sx={{ height: 40 }}
+                        >
+                            <ClearIcon fontSize="small" />
+                        </Button>
+                    </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+
+            {/* List Table */}
+            <Card 
+              sx={{ 
+                borderRadius: "18px", 
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`,
+                overflow: 'hidden',
+              }}
+            >
+                <EmployeeListTable
+                    items={filteredEmployees}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value, 10));
+                        setPage(0);
+                    }}
+                    onEdit={handleEdit}
+                    onDelete={(id) => setDeleteId(id)}
+                    getPropertyName={propertyName}
+                    skillsToLabel={skillsToLabel}
+                    onAddClick={handleCreate}
+                />
+            </Card>
+            </>
+        ) : (
+            <EmployeeForm
+                initialData={selectedEmployee ? {
+                    propertyId: selectedEmployee.propertyId,
+                    firstName: selectedEmployee.firstName,
+                    lastName: selectedEmployee.lastName,
+                    dob: selectedEmployee.dob || "",
+                    phone: selectedEmployee.phone || "",
+                    email: selectedEmployee.email || "",
+                    addressLine1: selectedEmployee.addressLine1 || "",
+                    addressLine2: selectedEmployee.addressLine2 || "",
+                    city: selectedEmployee.city || "",
+                    state: selectedEmployee.state || "",
+                    postalCode: selectedEmployee.postalCode || "",
+                    country: selectedEmployee.country || "",
+                    jobTitle: selectedEmployee.jobTitle || "",
+                    department: selectedEmployee.department || "",
+                    hireDate: selectedEmployee.hireDate || "",
+                    hourlyRate: selectedEmployee.hourlyRate?.toString() || "",
+                    skills: selectedEmployee.skills || "",
+                    photoUrl: selectedEmployee.photoUrl || "",
+                    employmentStatus: selectedEmployee.employmentStatus || "ACTIVE"
+                } : null}
+                properties={properties}
+                onSubmit={handleFormSubmit}
+                onCancel={() => setView('list')}
+                isEditing={!!selectedEmployee}
+                isSubmitting={isSubmitting}
             />
-          )}
-        </Card>
+        )}
       </Stack>
+
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}

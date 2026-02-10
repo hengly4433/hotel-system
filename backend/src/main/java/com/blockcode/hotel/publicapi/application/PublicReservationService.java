@@ -12,6 +12,7 @@ import com.blockcode.hotel.reservation.api.dto.ReservationCreateRequest;
 import com.blockcode.hotel.reservation.api.dto.ReservationResponse;
 import com.blockcode.hotel.reservation.api.dto.ReservationRoomRequest;
 import com.blockcode.hotel.reservation.application.ReservationService;
+import com.blockcode.hotel.notification.application.NotificationService;
 import com.blockcode.hotel.reservation.domain.ChannelType;
 import com.blockcode.hotel.reservation.domain.ReservationEntity;
 import com.blockcode.hotel.reservation.domain.ReservationStatus;
@@ -41,6 +42,7 @@ public class PublicReservationService {
   private final PropertyRepository propertyRepository;
   private final RoomTypeRepository roomTypeRepository;
   private final RatePlanRepository ratePlanRepository;
+  private final NotificationService notificationService;
 
   public PublicReservationService(
       ReservationService reservationService,
@@ -50,7 +52,8 @@ public class PublicReservationService {
       PersonRepository personRepository,
       PropertyRepository propertyRepository,
       RoomTypeRepository roomTypeRepository,
-      RatePlanRepository ratePlanRepository
+      RatePlanRepository ratePlanRepository,
+      NotificationService notificationService
   ) {
     this.reservationService = reservationService;
     this.reservationRepository = reservationRepository;
@@ -60,6 +63,7 @@ public class PublicReservationService {
     this.propertyRepository = propertyRepository;
     this.roomTypeRepository = roomTypeRepository;
     this.ratePlanRepository = ratePlanRepository;
+    this.notificationService = notificationService;
   }
 
   public ReservationResponse create(PublicReservationRequest request) {
@@ -119,7 +123,16 @@ public class PublicReservationService {
         List.of(roomRequest)
     );
 
-    return reservationService.create(createRequest);
+    ReservationResponse reservation = reservationService.create(createRequest);
+
+    notificationService.create(
+        "BOOKING",
+        "New Reservation",
+        "New reservation (" + reservation.code() + ") from " + person.getFirstName() + " " + person.getLastName(),
+        "/admin/reservations/" + reservation.id()
+    );
+
+    return reservation;
   }
 
   @Transactional(readOnly = true)

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -12,33 +11,27 @@ import {
   CardContent,
   TextField,
   MenuItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Alert,
   Typography,
   Stack,
   Grid,
   Chip,
-  TablePagination,
   alpha,
   Autocomplete,
+  InputAdornment,
+  Collapse,
 } from "@mui/material";
 import { 
-  Edit as EditIcon, 
-  Delete as DeleteIcon, 
   Add as AddIcon, 
   Assignment as AssignmentIcon,
-  CleaningServices as HousekeepingIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  Clear as ClearIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
+import HousekeepingForm, { HousekeepingFormData } from "./HousekeepingForm";
+import HousekeepingListTable from "./HousekeepingListTable";
 
 type Property = {
   id: string;
@@ -54,6 +47,12 @@ type Employee = {
   id: string;
   firstName: string;
   lastName: string;
+};
+
+type StatusEvent = {
+  status: string;
+  changedAt: string;
+  changedByUserId: string | null;
 };
 
 type Task = {
@@ -82,22 +81,39 @@ type BoardRow = {
 };
 
 const SHIFTS = ["AM", "PM", "NIGHT"] as const;
+const STATUSES = ["PENDING", "IN_PROGRESS", "DONE", "INSPECTED"] as const;
 
 export default function HousekeepingPage() {
-  const router = useRouter();
+  const [view, setView] = useState<'list' | 'form'>('list');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskEvents, setTaskEvents] = useState<StatusEvent[]>([]);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [error, setError] = useState<string | null>(null);
+  
+  // Board State
   const [boardDate, setBoardDate] = useState<string>("");
   const [boardPropertyId, setBoardPropertyId] = useState<string>("");
   const [boardShift, setBoardShift] = useState<string>("");
   const [boardRows, setBoardRows] = useState<BoardRow[]>([]);
   const [boardError, setBoardError] = useState<string | null>(null);
+  const [showBoard, setShowBoard] = useState(true);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [shiftFilter, setShiftFilter] = useState("all");
+
+  // Pagination
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
@@ -128,11 +144,39 @@ export default function HousekeepingPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadData();
-    }, 0);
-    return () => clearTimeout(timer);
+    void loadData();
   }, [loadData]);
+
+  // Load events when editing a task
+  useEffect(() => {
+    async function loadEvents() {
+        if (selectedTask) {
+            try {
+                const eventsData = await apiJson<StatusEvent[]>(`housekeeping/tasks/${selectedTask.id}/events`);
+                setTaskEvents(eventsData);
+            } catch (err) {
+                console.error("Failed to load task events", err);
+            }
+        } else {
+            setTaskEvents([]);
+        }
+    }
+    loadEvents();
+  }, [selectedTask]);
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const matchesSearch = 
+        getRoomLabel(task.roomId).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        getPropertyName(task.propertyId).toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesProperty = propertyFilter === "all" || task.propertyId === propertyFilter;
+      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+      const matchesShift = shiftFilter === "all" || task.shift === shiftFilter;
+
+      return matchesSearch && matchesProperty && matchesStatus && matchesShift;
+    });
+  }, [tasks, searchQuery, propertyFilter, statusFilter, shiftFilter, rooms, properties]);
 
   const selectedBoardProperty = useMemo(() => 
     properties.find(p => p.id === boardPropertyId) || null,
@@ -155,15 +199,14 @@ export default function HousekeepingPage() {
     return properties.find((p) => p.id === propertyId)?.name || propertyId;
   }
 
-  function roomLabel(roomId: string) {
-    return rooms.find((room) => room.id === roomId)?.roomNumber || roomId;
-  }
-
-  function employeeName(employeeId: string | null) {
-    if (!employeeId) return "-";
-    const employee = employees.find((emp) => emp.id === employeeId);
-    return employee ? `${employee.firstName} ${employee.lastName}` : employeeId;
-  }
+  // Create wrappers for list table to avoid dependency issues in useEffect
+  const getPropertyName = (id: string) => propertyName(id);
+  const getRoomLabel = (id: string) => rooms.find((r) => r.id === id)?.roomNumber || id;
+  const getEmployeeName = (id: string | null) => {
+    if (!id) return "-";
+    const emp = employees.find((e) => e.id === id);
+    return emp ? `${emp.firstName} ${emp.lastName}` : id;
+  };
 
   async function loadBoard() {
     if (!boardPropertyId || !boardDate) {
@@ -204,295 +247,369 @@ export default function HousekeepingPage() {
     }
   }
 
+  // Form Handlers
+  const handleCreate = () => {
+    setSelectedTask(null);
+    setView('form');
+  };
+
+  const handleEdit = (task: Task) => {
+    setSelectedTask(task);
+    setView('form');
+  };
+
+  const handleFormSubmit = async (formData: HousekeepingFormData) => {
+    setIsSubmitting(true);
+    try {
+        const payload = {
+            propertyId: formData.propertyId,
+            roomId: formData.roomId,
+            taskDate: formData.taskDate,
+            shift: formData.shift,
+            status: formData.status,
+            assignedToEmployeeId: formData.assignedToEmployeeId || null,
+            checklist: formData.checklist || null,
+        };
+
+        if (selectedTask) {
+            await apiJson(`housekeeping/tasks/${selectedTask.id}`, {
+                method: "PUT",
+                body: JSON.stringify(payload),
+            });
+            showSuccess("Task updated successfully");
+        } else {
+            await apiJson("housekeeping/tasks", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            });
+            showSuccess("Task created successfully");
+        }
+        await loadData();
+        setView('list');
+    } catch (err) {
+        showError(getErrorMessage(err));
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setPropertyFilter("all");
+    setStatusFilter("all");
+    setShiftFilter("all");
+  };
+
   return (
     <Box component="main">
-      <PageHeader 
-        title="Housekeeping" 
-        subtitle="Daily cleaning tasks"
-        action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => router.push("/admin/housekeeping/new")}
-            sx={{
-              boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-            }}
-          >
-            New Task
-          </Button>
-        }
-      />
-      
-      <Stack spacing={3}>
-        {error && (
-          <Alert severity="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Housekeeping Board */}
-        <Card 
-          sx={{ 
-            borderRadius: 3, 
-            boxShadow: tokens.shadows.card,
-            border: `1px solid ${tokens.colors.grey[200]}`,
-          }}
-        >
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Housekeeping Board
-            </Typography>
-            {boardError && <Alert severity="error" sx={{ mb: 2 }}>{boardError}</Alert>}
-            
-            <Grid container spacing={2} alignItems="flex-end">
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Autocomplete
-                  options={properties}
-                  getOptionLabel={(option) => option.name}
-                  value={selectedBoardProperty}
-                  onChange={(_, newValue) => {
-                    setBoardPropertyId(newValue?.id || "");
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Property"
-                      size="small"
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  )}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <TextField
-                  type="date"
-                  label="Date"
-                  value={boardDate}
-                  onChange={(e) => setBoardDate(e.target.value)}
-                  fullWidth
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <TextField
-                  select
-                  label="Shift (Optional)"
-                  value={boardShift}
-                  onChange={(e) => setBoardShift(e.target.value)}
-                  fullWidth
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {SHIFTS.map((shift) => (
-                    <MenuItem key={shift} value={shift}>
-                      {shift}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid size={{ xs: 12, md: 2 }}>
-                <Button 
-                  variant="outlined" 
-                  onClick={loadBoard} 
-                  fullWidth
-                  startIcon={<AssignmentIcon />}
-                >
-                  Load
-                </Button>
-              </Grid>
-            </Grid>
-
-            {boardRows.length > 0 && (
-              <Box sx={{ mt: 3 }}>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Room</TableCell>
-                        <TableCell>Shift</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Assigned</TableCell>
-                        <TableCell>Due</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {boardRows.map((row) => {
-                        const statusStyle = getStatusColor(row.status);
-                        return (
-                          <TableRow key={row.taskId}>
-                            <TableCell sx={{ fontWeight: 500 }}>{row.roomNumber || roomLabel(row.roomId)}</TableCell>
-                            <TableCell>{row.shift}</TableCell>
-                            <TableCell>
-                              <Chip 
-                                label={row.status} 
-                                size="small" 
-                                sx={{ 
-                                  bgcolor: statusStyle.bg, 
-                                  color: statusStyle.color,
-                                  fontWeight: 600,
-                                }} 
-                              />
-                            </TableCell>
-                            <TableCell>{employeeName(row.assignedToEmployeeId)}</TableCell>
-                            <TableCell sx={{ color: row.overdue ? "error.main" : "text.secondary" }}>
-                              {row.dueAt ? new Date(row.dueAt).toLocaleString() : "-"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Table */}
-        <Card 
-          sx={{ 
-            borderRadius: 3, 
-            boxShadow: tokens.shadows.card,
-            border: `1px solid ${tokens.colors.grey[200]}`,
-            overflow: 'hidden',
-          }}
-        >
-          <TableContainer component={Paper} elevation={0}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Property</TableCell>
-                  <TableCell>Room</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Assigned</TableCell>
-                  <TableCell>Due</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {tasks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <HousekeepingIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
-                        <Typography variant="h6" color="text.secondary" gutterBottom>
-                          No housekeeping tasks found
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Create your first cleaning task
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => router.push("/admin/housekeeping/new")}
-                          size="small"
-                        >
-                          Add Task
-                        </Button>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  tasks
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((task, index) => {
-                      const statusStyle = getStatusColor(task.status);
-                      return (
-                        <TableRow 
-                          key={task.id} 
-                          hover
-                          sx={{
-                            '&:hover': {
-                              bgcolor: alpha(tokens.colors.primary.main, 0.02),
-                            }
-                          }}
-                        >
-                          <TableCell>
-                            <Typography variant="body2" color="text.secondary">
-                              {page * rowsPerPage + index + 1}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 500 }}>{task.taskDate}</TableCell>
-                          <TableCell>{propertyName(task.propertyId)}</TableCell>
-                          <TableCell>{roomLabel(task.roomId)}</TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={task.status} 
-                              size="small" 
-                              sx={{ 
-                                bgcolor: statusStyle.bg, 
-                                color: statusStyle.color,
-                                fontWeight: 600,
-                              }} 
-                            />
-                          </TableCell>
-                          <TableCell>{employeeName(task.assignedToEmployeeId)}</TableCell>
-                          <TableCell sx={{ color: task.overdue ? "error.main" : "text.primary" }}>
-                            {task.dueAt ? new Date(task.dueAt).toLocaleString() : "-"}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                              <IconButton 
-                                size="small" 
-                                onClick={() => router.push(`/admin/housekeeping/${task.id}`)}
-                                sx={{
-                                  bgcolor: alpha(tokens.colors.primary.main, 0.08),
-                                  color: tokens.colors.primary.main,
-                                  '&:hover': { bgcolor: alpha(tokens.colors.primary.main, 0.15) }
-                                }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton 
-                                size="small" 
-                                onClick={() => setDeleteId(task.id)}
-                                sx={{
-                                  bgcolor: alpha(tokens.colors.error.main, 0.08),
-                                  color: tokens.colors.error.main,
-                                  '&:hover': { bgcolor: alpha(tokens.colors.error.main, 0.15) }
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {tasks.length > 0 && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={tasks.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={(_, newPage) => setPage(newPage)}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
+        <Stack spacing={3}>
+            <PageHeader 
+                title="Housekeeping" 
+                subtitle="Daily cleaning tasks management"
+                action={
+                view === 'list' ? (
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleCreate}
+                        sx={{
+                            boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
+                        }}
+                    >
+                        New Task
+                    </Button>
+                ) : null
+                }
             />
-          )}
-        </Card>
-      </Stack>
-      <ConfirmDialog
-        open={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        onConfirm={handleDelete}
-        title="Delete Task?"
-        description="This will permanently remove this housekeeping task."
-        confirmText="Delete"
-        variant="danger"
-      />
+            
+            <Collapse in={!!error}>
+                <Box mb={3}>
+                    {error && (
+                    <Typography color="error" variant="body2" sx={{ bgcolor: alpha(tokens.colors.error.main, 0.1), p: 2, borderRadius: 2 }}>
+                        {error}
+                    </Typography>
+                    )}
+                </Box>
+            </Collapse>
+
+            {view === 'list' ? (
+                <>
+                {/* Housekeeping Board Section */}
+                <Card 
+                    sx={{ 
+                        borderRadius: "18px", 
+                        boxShadow: tokens.shadows.card,
+                        border: `1px solid ${tokens.colors.grey[200]}`,
+                    }}
+                >
+                    <Box 
+                        sx={{ 
+                            p: 3, 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            bgcolor: alpha(tokens.colors.grey[50], 0.5)
+                        }}
+                        onClick={() => setShowBoard(!showBoard)}
+                    >
+                        <Typography variant="h6" fontWeight="bold">
+                            Housekeeping Board
+                        </Typography>
+                        <Button size="small" variant="text">
+                            {showBoard ? 'Hide Board' : 'Show Board'}
+                        </Button>
+                    </Box>
+                    
+                    <Collapse in={showBoard}>
+                        <CardContent sx={{ p: 3, pt: 0 }}>
+                            {boardError && <Typography color="error" sx={{ mb: 2 }}>{boardError}</Typography>}
+                            
+                            <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 3 }}>
+                            <Grid size={{ xs: 12, md: 4 }}>
+                                <Autocomplete
+                                options={properties}
+                                getOptionLabel={(option) => option.name}
+                                value={selectedBoardProperty}
+                                onChange={(_, newValue) => {
+                                    setBoardPropertyId(newValue?.id || "");
+                                }}
+                                renderInput={(params) => (
+                                    <TextField
+                                    {...params}
+                                    label="Property"
+                                    size="small"
+                                    InputLabelProps={{ shrink: true }}
+                                    />
+                                )}
+                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 3 }}>
+                                <TextField
+                                type="date"
+                                label="Date"
+                                value={boardDate}
+                                onChange={(e) => setBoardDate(e.target.value)}
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 3 }}>
+                                <TextField
+                                select
+                                label="Shift (Optional)"
+                                value={boardShift}
+                                onChange={(e) => setBoardShift(e.target.value)}
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                >
+                                <MenuItem value="">All</MenuItem>
+                                {SHIFTS.map((shift) => (
+                                    <MenuItem key={shift} value={shift}>
+                                    {shift}
+                                    </MenuItem>
+                                ))}
+                                </TextField>
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 2 }}>
+                                <Button 
+                                variant="outlined" 
+                                onClick={loadBoard} 
+                                fullWidth
+                                startIcon={<AssignmentIcon />}
+                                >
+                                Load
+                                </Button>
+                            </Grid>
+                            </Grid>
+
+                            {boardRows.length > 0 && (
+                            <Box sx={{ mt: 3, overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: `1px solid ${tokens.colors.grey[200]}` }}>
+                                            <th style={{ padding: 12, textAlign: 'left', color: tokens.colors.grey[600], fontSize: '0.875rem' }}>Room</th>
+                                            <th style={{ padding: 12, textAlign: 'left', color: tokens.colors.grey[600], fontSize: '0.875rem' }}>Shift</th>
+                                            <th style={{ padding: 12, textAlign: 'left', color: tokens.colors.grey[600], fontSize: '0.875rem' }}>Status</th>
+                                            <th style={{ padding: 12, textAlign: 'left', color: tokens.colors.grey[600], fontSize: '0.875rem' }}>Assigned</th>
+                                            <th style={{ padding: 12, textAlign: 'left', color: tokens.colors.grey[600], fontSize: '0.875rem' }}>Due</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {boardRows.map((row) => {
+                                            const statusStyle = getStatusColor(row.status);
+                                            return (
+                                            <tr key={row.taskId} style={{ borderBottom: `1px solid ${tokens.colors.grey[100]}` }}>
+                                                <td style={{ padding: 12 }}><b>{row.roomNumber || getRoomLabel(row.roomId)}</b></td>
+                                                <td style={{ padding: 12 }}>{row.shift}</td>
+                                                <td style={{ padding: 12 }}>
+                                                    <Chip 
+                                                        label={row.status} 
+                                                        size="small" 
+                                                        sx={{ 
+                                                            bgcolor: statusStyle.bg, 
+                                                            color: statusStyle.color,
+                                                            fontWeight: 600,
+                                                            height: 24,
+                                                            fontSize: '0.75rem'
+                                                        }} 
+                                                    />
+                                                </td>
+                                                <td style={{ padding: 12 }}>{getEmployeeName(row.assignedToEmployeeId)}</td>
+                                                <td style={{ padding: 12, color: row.overdue ? tokens.colors.error.main : 'inherit' }}>
+                                                    {row.dueAt ? new Date(row.dueAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "-"}
+                                                </td>
+                                            </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </Box>
+                            )}
+                        </CardContent>
+                    </Collapse>
+
+                    {/* Filters Section */}
+                    <Box sx={{ p: 2, borderTop: `1px solid ${tokens.colors.grey[200]}` }}>
+                        <Grid container spacing={2} alignItems="center">
+                            <Grid size={{ xs: 12, md: 3 }}>
+                                <TextField
+                                fullWidth
+                                placeholder="Search room..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                size="small"
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                            <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                                            </InputAdornment>
+                                        ),
+                                    }
+                                }}
+                                />
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 3 }}>
+                                <TextField
+                                select
+                                fullWidth
+                                label="Status"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                >
+                                <MenuItem value="all">All Statuses</MenuItem>
+                                {STATUSES.map((status) => (
+                                    <MenuItem key={status} value={status}>
+                                    {status}
+                                    </MenuItem>
+                                ))}
+                                </TextField>
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 3 }}>
+                                <TextField
+                                select
+                                fullWidth
+                                label="Property"
+                                value={propertyFilter}
+                                onChange={(e) => setPropertyFilter(e.target.value)}
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                >
+                                <MenuItem value="all">All Properties</MenuItem>
+                                {properties.map((p) => (
+                                    <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                                ))}
+                                </TextField>
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 3 }} container spacing={1}>
+                                <Grid size={{ xs: 8 }}>
+                                    <TextField
+                                        select
+                                        fullWidth
+                                        label="Shift"
+                                        value={shiftFilter}
+                                        onChange={(e) => setShiftFilter(e.target.value)}
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                    >
+                                        <MenuItem value="all">All Shifts</MenuItem>
+                                        {SHIFTS.map((shift) => (
+                                            <MenuItem key={shift} value={shift}>{shift}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                </Grid>
+                                <Grid size={{ xs: 4 }}>
+                                    <Button
+                                        fullWidth
+                                        variant="outlined"
+                                        onClick={clearFilters}
+                                        sx={{ height: 40 }}
+                                    >
+                                        <ClearIcon fontSize="small" />
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </Box>
+                </Card>
+
+                {/* List Table */}
+                <HousekeepingListTable
+                    items={filteredTasks}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value, 10));
+                        setPage(0);
+                    }}
+                    onEdit={handleEdit}
+                    onDelete={(id) => setDeleteId(id)}
+                    getPropertyName={getPropertyName}
+                    getRoomLabel={getRoomLabel}
+                    getEmployeeName={getEmployeeName}
+                    getStatusColor={getStatusColor}
+                    onAddClick={handleCreate}
+                />
+                </>
+            ) : (
+                <HousekeepingForm
+                    initialData={selectedTask ? {
+                        propertyId: selectedTask.propertyId,
+                        roomId: selectedTask.roomId,
+                        taskDate: selectedTask.taskDate,
+                        shift: selectedTask.shift,
+                        status: selectedTask.status,
+                        assignedToEmployeeId: selectedTask.assignedToEmployeeId || "",
+                        checklist: selectedTask.checklist || "{}",
+                    } : null}
+                    properties={properties}
+                    rooms={rooms}
+                    employees={employees}
+                    events={taskEvents}
+                    onSubmit={handleFormSubmit}
+                    onCancel={() => setView('list')}
+                    isEditing={!!selectedTask}
+                    isSubmitting={isSubmitting}
+                />
+            )}
+        </Stack>
+
+        <ConfirmDialog
+            open={!!deleteId}
+            onClose={() => setDeleteId(null)}
+            onConfirm={handleDelete}
+            title="Delete Task?"
+            description="This will permanently remove this housekeeping task."
+            confirmText="Delete"
+            variant="danger"
+        />
     </Box>
   );
 }

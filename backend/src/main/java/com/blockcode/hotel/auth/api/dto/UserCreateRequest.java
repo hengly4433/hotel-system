@@ -10,6 +10,9 @@ import java.util.UUID;
 public record UserCreateRequest(
     @NotBlank @Email String email,
     @NotBlank String password,
+    String firstName,
+    String lastName,
+    String profileImage,
     UserStatus status,
     UUID propertyId,
     List<UUID> roleIds

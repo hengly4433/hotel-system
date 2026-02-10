@@ -1,30 +1,33 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  IconButton, 
-  Avatar, 
-  Box, 
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  IconButton,
+  Avatar,
+  Box,
   Badge,
   Divider,
   Tooltip,
   alpha,
   InputBase,
 } from "@mui/material";
-import { 
-  Notifications, 
-  Mail, 
+import {
+  Notifications,
+  Mail,
   Menu as MenuIcon,
   Search as SearchIcon,
   Logout,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
+import { useUser } from "@/hooks/useUser";
+import NotificationBell from "./NotificationBell";
 
 export default function TopBar() {
   const router = useRouter();
+  const { user } = useUser();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -43,9 +46,9 @@ export default function TopBar() {
       }}
     >
       <Toolbar sx={{ gap: 2 }}>
-        <IconButton 
-          edge="start" 
-          color="inherit" 
+        <IconButton
+          edge="start"
+          color="inherit"
           sx={{ display: { md: "none" } }}
         >
           <MenuIcon />
@@ -72,9 +75,9 @@ export default function TopBar() {
               fontSize: '0.875rem',
             }}
           />
-          <Typography 
-            variant="caption" 
-            sx={{ 
+          <Typography
+            variant="caption"
+            sx={{
               bgcolor: tokens.colors.grey[200],
               color: tokens.colors.grey[600],
               px: 1,
@@ -101,35 +104,44 @@ export default function TopBar() {
           </Tooltip>
 
           <Tooltip title="Notifications">
-            <IconButton color="inherit">
-              <Badge badgeContent={4} color="warning">
-                <Notifications sx={{ color: tokens.colors.grey[600] }} />
-              </Badge>
-            </IconButton>
+            <Box>
+              <NotificationBell />
+            </Box>
           </Tooltip>
         </Box>
 
         <Divider orientation="vertical" flexItem sx={{ mx: 1, bgcolor: tokens.colors.grey[200] }} />
 
         {/* User Info */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+        <Box
+          sx={{ display: "flex", alignItems: "center", gap: 1.5, cursor: "pointer" }}
+          onClick={() => router.push("/admin/profile")}
+        >
+          <Box sx={{ textAlign: "right", display: { xs: "none", sm: "block" } }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-              David Grey
+              {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : user?.email || "User"}
             </Typography>
             <Typography variant="caption" sx={{ color: tokens.colors.grey[500] }}>
               Administrator
             </Typography>
           </Box>
           <Avatar
-            src="/assets/faces/face1.jpg"
-            alt="David Grey"
+            src={user?.profileImage || undefined}
+            alt={user?.firstName || "User"}
             sx={{ width: 38, height: 38 }}
-          />
+            imgProps={{
+              style: { objectPosition: 'top', objectFit: 'cover' }
+            }}
+          >
+            {(!user?.profileImage && user?.firstName) ? user.firstName[0].toUpperCase() : "U"}
+          </Avatar>
           <Tooltip title="Logout">
-            <IconButton 
-              size="small" 
-              onClick={handleLogout}
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLogout();
+              }}
               sx={{ color: tokens.colors.grey[500] }}
             >
               <Logout fontSize="small" />

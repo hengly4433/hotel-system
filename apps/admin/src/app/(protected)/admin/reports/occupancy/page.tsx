@@ -1,31 +1,109 @@
 "use client";
 
-import { useState } from "react";
-import { Stack } from "@mui/material";
+import { useState, useCallback, useEffect } from "react";
+import { Stack, Box, Card, CardContent, Grid, TextField, Typography } from "@mui/material";
 import PageHeader from "@/components/ui/PageHeader";
-import ReportFilter from "@/components/reports/ReportFilter";
-import OccupancyReport from "@/components/reports/OccupancyReport";
 import { startOfMonth, endOfMonth, format } from "date-fns";
+import { reportsApi, OccupancyReportItem } from "@/lib/api/reports";
+import { tokens } from "@/lib/theme";
+import OccupancyListTable from "./OccupancyListTable";
 
 export default function OccupancyPage() {
   const [fromDate, setFromDate] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [toDate, setToDate] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
+  
+  const [data, setData] = useState<OccupancyReportItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const fetchData = useCallback(async () => {
+    if (!fromDate || !toDate) return;
+    
+    setLoading(true);
+    try {
+      const result = await reportsApi.getOccupancy({
+        fromDate,
+        toDate,
+      });
+      setData(result);
+      setPage(0);
+    } catch (err) {
+      console.error("Failed to fetch occupancy report", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [fromDate, toDate]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
-    <main>
+    <Box component="main">
       <PageHeader title="Occupancy Report" subtitle="Room utilization statistics" />
       <Stack spacing={3}>
-        <ReportFilter
-          fromDate={fromDate}
-          toDate={toDate}
-          onFromDateChange={setFromDate}
-          onToDateChange={setToDate}
-        />
-        <OccupancyReport
-          fromDate={fromDate ? new Date(fromDate) : null}
-          toDate={toDate ? new Date(toDate) : null}
-        />
+        {/* Filters */}
+        <Card
+            sx={{
+            borderRadius: "18px",
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            }}
+        >
+            <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Filter Data
+                </Typography>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                            label="From Date"
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            size="small"
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                            label="To Date"
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            size="small"
+                        />
+                    </Grid>
+                </Grid>
+            </CardContent>
+        </Card>
+
+        {/* List Table */}
+        <Card
+            sx={{
+            borderRadius: "18px",
+            boxShadow: tokens.shadows.card,
+            border: `1px solid ${tokens.colors.grey[200]}`,
+            overflow: 'hidden',
+            }}
+        >
+            <OccupancyListTable
+                items={data}
+                loading={loading}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                onPageChange={(_, newPage) => setPage(newPage)}
+                onRowsPerPageChange={(e) => {
+                    setRowsPerPage(parseInt(e.target.value, 10));
+                    setPage(0);
+                }}
+            />
+        </Card>
       </Stack>
-    </main>
+    </Box>
   );
 }

@@ -133,21 +133,21 @@ export default function FoliosPage() {
         )}
 
         {/* Summary Cards */}
-        <Stack direction="row" spacing={3}>
+        <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
           <Card 
             sx={{ 
               flex: 1,
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
           >
-            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Stack direction="row" alignItems="center" spacing={2}>
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
+                    width: 48,
+                    height: 48,
                     borderRadius: 3,
                     bgcolor: alpha("#22c55e", 0.1),
                     display: 'flex',
@@ -155,13 +155,13 @@ export default function FoliosPage() {
                     justifyContent: 'center',
                   }}
                 >
-                  <OpenIcon sx={{ color: "#22c55e", fontSize: 28 }} />
+                  <OpenIcon sx={{ color: "#22c55e", fontSize: 24 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold">
                     {openCount}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>
                     Open Folios
                   </Typography>
                 </Box>
@@ -172,17 +172,17 @@ export default function FoliosPage() {
           <Card 
             sx={{ 
               flex: 1,
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
           >
-            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Stack direction="row" alignItems="center" spacing={2}>
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
+                    width: 48,
+                    height: 48,
                     borderRadius: 3,
                     bgcolor: alpha("#3b82f6", 0.1),
                     display: 'flex',
@@ -190,13 +190,13 @@ export default function FoliosPage() {
                     justifyContent: 'center',
                   }}
                 >
-                  <ClosedIcon sx={{ color: "#3b82f6", fontSize: 28 }} />
+                  <ClosedIcon sx={{ color: "#3b82f6", fontSize: 24 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold">
                     {closedCount}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>
                     Closed Folios
                   </Typography>
                 </Box>
@@ -207,17 +207,17 @@ export default function FoliosPage() {
           <Card 
             sx={{ 
               flex: 1,
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
           >
-            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Stack direction="row" alignItems="center" spacing={2}>
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
+                    width: 48,
+                    height: 48,
                     borderRadius: 3,
                     bgcolor: alpha(tokens.colors.primary.main, 0.1),
                     display: 'flex',
@@ -225,13 +225,13 @@ export default function FoliosPage() {
                     justifyContent: 'center',
                   }}
                 >
-                  <FolioIcon sx={{ color: tokens.colors.primary.main, fontSize: 28 }} />
+                  <FolioIcon sx={{ color: tokens.colors.primary.main, fontSize: 24 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold">
                     {folios.length}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>
                     Total Folios
                   </Typography>
                 </Box>
@@ -243,16 +243,16 @@ export default function FoliosPage() {
         {/* Main Table Card */}
         <Card 
           sx={{ 
-            borderRadius: 3, 
+            borderRadius: "18px", 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
             overflow: 'hidden',
           }}
         >
           {/* Search */}
-          <Box sx={{ p: 3, borderBottom: `1px solid ${tokens.colors.grey[200]}` }}>
+          <Box sx={{ p: 2, borderBottom: `1px solid ${tokens.colors.grey[200]}` }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" fontWeight="bold">
+              <Typography variant="subtitle1" fontWeight="bold">
                 All Folios
               </Typography>
               <TextField
@@ -272,16 +272,16 @@ export default function FoliosPage() {
             </Stack>
           </Box>
 
-          <TableContainer component={Paper} elevation={0}>
+          <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 0 }}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Folio ID</TableCell>
-                  <TableCell>Reservation</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Currency</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                <TableRow sx={{ bgcolor: alpha(tokens.colors.primary.main, 0.04) }}>
+                  <TableCell sx={{ width: 60, fontWeight: 700, color: tokens.colors.grey[600] }}>NO</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>FOLIO ID</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>RESERVATION</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>STATUS</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>CURRENCY</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>ACTIONS</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -324,24 +324,20 @@ export default function FoliosPage() {
                             href={`/admin/finance/folios/${folio.id}`}
                             style={{ textDecoration: 'none' }}
                           >
-                            <Typography 
-                              variant="body2" 
-                              fontWeight={600}
+                            <Chip 
+                              label={folio.id.substring(0, 8) + "..."}
+                              size="small"
                               sx={{ 
                                 fontFamily: 'monospace',
-                                bgcolor: tokens.colors.grey[100],
-                                px: 1.5,
-                                py: 0.5,
-                                borderRadius: 1,
-                                display: 'inline-block',
+                                bgcolor: alpha(tokens.colors.primary.main, 0.08),
                                 color: tokens.colors.primary.main,
+                                fontWeight: 600,
+                                cursor: 'pointer',
                                 '&:hover': {
-                                  bgcolor: alpha(tokens.colors.primary.main, 0.1),
+                                  bgcolor: alpha(tokens.colors.primary.main, 0.15),
                                 }
                               }}
-                            >
-                              {folio.id.substring(0, 8)}...
-                            </Typography>
+                            />
                           </Link>
                         </TableCell>
                         <TableCell>
@@ -364,8 +360,10 @@ export default function FoliosPage() {
                               bgcolor: status.bg,
                               color: status.color,
                               fontWeight: 600,
+                              height: 24,
                               '& .MuiChip-icon': {
                                 color: status.color,
+                                fontSize: 16
                               }
                             }}
                           />
@@ -373,7 +371,7 @@ export default function FoliosPage() {
                         <TableCell>
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <MoneyIcon sx={{ fontSize: 16, color: tokens.colors.grey[400] }} />
-                            <Typography variant="body2" fontWeight={500}>
+                            <Typography variant="body2" fontWeight={600} color={tokens.colors.grey[700]}>
                               {currencySymbol} {folio.currency}
                             </Typography>
                           </Stack>
@@ -385,10 +383,9 @@ export default function FoliosPage() {
                               href={`/admin/finance/folios/${folio.id}`}
                               size="small"
                               sx={{
-                                bgcolor: alpha(tokens.colors.primary.main, 0.08),
                                 color: tokens.colors.primary.main,
                                 '&:hover': {
-                                  bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                                  bgcolor: alpha(tokens.colors.primary.main, 0.08),
                                 }
                               }}
                             >
@@ -416,6 +413,7 @@ export default function FoliosPage() {
                 setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
+              sx={{ borderTop: `1px solid ${tokens.colors.grey[200]}` }}
             />
           )}
         </Card>

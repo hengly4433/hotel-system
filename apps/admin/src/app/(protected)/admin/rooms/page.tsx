@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -10,9 +10,20 @@ import {
   Alert,
   Stack,
   Fade,
-  alpha
+  alpha,
+  Card,
+  TextField,
+  MenuItem,
+  InputAdornment,
+  Tooltip,
+  IconButton
 } from "@mui/material"; 
-import { Add as AddIcon } from "@mui/icons-material";
+import { 
+  Add as AddIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  Clear as ClearIcon
+} from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import RoomListTable from "./RoomListTable";
 import RoomForm from "./RoomForm";
@@ -32,6 +43,12 @@ export default function RoomsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -142,16 +159,53 @@ export default function RoomsPage() {
     return property?.name || "Unknown";
   }
 
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((room) => {
+      // 1. Property Filter
+      if (propertyFilter !== "ALL" && room.propertyId !== propertyFilter) {
+        return false;
+      }
+
+      // 2. Type Filter
+      if (typeFilter !== "ALL" && room.roomTypeId !== typeFilter) {
+        return false;
+      }
+
+      // 3. Status Filter
+      if (statusFilter !== "ALL") {
+        const isActive = statusFilter === "ACTIVE";
+        if (room.isActive !== isActive) return false;
+      }
+
+      // 4. Search Query (Room Number)
+      if (searchQuery) {
+        if (!room.roomNumber.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [rooms, propertyFilter, typeFilter, statusFilter, searchQuery]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setPropertyFilter("ALL");
+    setTypeFilter("ALL");
+    setStatusFilter("ALL");
+  };
+
+  // Filter available room types based on selected property (if any)
+  const availableRoomTypes = useMemo(() => {
+     if (propertyFilter === "ALL") return roomTypes;
+     return roomTypes.filter(t => t.propertyId === propertyFilter);
+  }, [roomTypes, propertyFilter]);
+
   return (
     <Box component="main">
       <PageHeader
         title="Rooms"
         subtitle="Manage room inventory and availability"
-        // Action button is now handled within the Table empty state or via condition, 
-        // but typically standard actions are top-right.
-        // We can keep it here OR inside the table. The user request was "separate for Room creation".
-        // Let's keep it clean: if showing form, no header action. If showing list, maybe header action?
-        // Actually the previous design had it. Let's keep it consistent.
         action={
           !showForm ? (
             <Button
@@ -191,8 +245,95 @@ export default function RoomsPage() {
         ) : (
           <Fade in={!showForm}>
             <Box>
+                {/* Filters Toolbar */}
+                <Card
+                  sx={{
+                    p: 2,
+                    mb: 1,
+                    borderRadius: "18px",
+                    boxShadow: tokens.shadows.card,
+                    border: `1px solid ${tokens.colors.grey[200]}`,
+                  }}
+                >
+                  <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+                    <TextField
+                      placeholder="Search room number..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      size="small"
+                      fullWidth
+                      sx={{ flex: 2 }}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+
+                    <TextField
+                      select
+                      label="Property"
+                      value={propertyFilter}
+                      onChange={(e) => {
+                        setPropertyFilter(e.target.value);
+                        // Reset type filter if property changes to avoid mismatch
+                        setTypeFilter("ALL"); 
+                      }}
+                      size="small"
+                      sx={{ minWidth: 160, flex: 1 }}
+                      fullWidth
+                    >
+                      <MenuItem value="ALL">All Properties</MenuItem>
+                      {properties.map((prop) => (
+                        <MenuItem key={prop.id} value={prop.id}>
+                          {prop.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+
+                    <TextField
+                      select
+                      label="Room Type"
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value)}
+                      size="small"
+                      sx={{ minWidth: 160, flex: 1 }}
+                      fullWidth
+                    >
+                      <MenuItem value="ALL">All Types</MenuItem>
+                      {availableRoomTypes.map((type) => (
+                        <MenuItem key={type.id} value={type.id}>
+                          {type.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+
+                    <TextField
+                      select
+                      label="Status"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      size="small"
+                      sx={{ minWidth: 120, flex: 1 }}
+                      fullWidth
+                    >
+                      <MenuItem value="ALL">All Status</MenuItem>
+                      <MenuItem value="ACTIVE">Active</MenuItem>
+                      <MenuItem value="INACTIVE">Inactive</MenuItem>
+                    </TextField>
+
+                    <Tooltip title="Clear Filters">
+                      <IconButton onClick={clearFilters} sx={{ bgcolor: tokens.colors.grey[100] }}>
+                        <ClearIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </Card>
+
                 <RoomListTable
-                    rooms={rooms}
+                    rooms={filteredRooms}
                     page={page}
                     rowsPerPage={rowsPerPage}
                     onPageChange={handleChangePage}

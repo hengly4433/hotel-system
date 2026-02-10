@@ -71,4 +71,12 @@ public class ReportController {
     public List<HousekeepingStatusResponse> getHousekeepingReport() {
         return reportService.getHousekeepingReport();
     }
+
+    @GetMapping("/new-bookings")
+    @PreAuthorize("hasAuthority('report.READ') or hasAuthority('rbac.ADMIN')")
+    public long getNewBookingsCount(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        return reportService.getNewBookingsCount(targetDate);
+    }
 }

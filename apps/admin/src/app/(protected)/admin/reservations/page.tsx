@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import Link from "next/link";
 import { apiJson } from "@/lib/api/client";
@@ -24,7 +24,13 @@ import {
   Stack,
   TablePagination,
   alpha,
+  TextField,
+  MenuItem,
+  InputAdornment,
 } from "@mui/material";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import {
   Edit as EditIcon,
   Login as CheckInIcon,
@@ -37,6 +43,9 @@ import {
   CheckCircle as CheckCircleIcon,
   HourglassEmpty as PendingIcon,
   DoNotDisturb as CancelledIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  Clear as ClearIcon,
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -50,6 +59,7 @@ type Reservation = {
   checkOutDate: string;
   adults: number;
   children: number;
+  primaryGuestId?: string;
   rooms: Array<{
     id: string;
     roomTypeId: string;
@@ -57,6 +67,13 @@ type Reservation = {
     ratePlanId: string;
     guestsInRoom: number;
   }>;
+};
+
+type Guest = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
 };
 
 const STATUS_CONFIG: Record<string, { 
@@ -94,10 +111,26 @@ const STATUS_CONFIG: Record<string, {
   },
 };
 
+const STATUS_OPTIONS = [
+  { value: "ALL", label: "All Statuses" },
+  { value: "CONFIRMED", label: "Confirmed" },
+  { value: "CHECKED_IN", label: "Checked In" },
+  { value: "CHECKED_OUT", label: "Checked Out" },
+  { value: "CANCELLED", label: "Cancelled" },
+  { value: "PENDING", label: "Pending" },
+];
+
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [guests, setGuests] = useState<Record<string, Guest>>({});
   const [error, setError] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -113,8 +146,19 @@ export default function ReservationsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const data = await apiJson<Reservation[]>("reservations");
-      setReservations(data);
+      const [reservationsData, guestsData] = await Promise.all([
+        apiJson<Reservation[]>("reservations"),
+        apiJson<Guest[]>("guests"),
+      ]);
+      
+      setReservations(reservationsData);
+      
+      const guestsMap = guestsData.reduce((acc, guest) => {
+        acc[guest.id] = guest;
+        return acc;
+      }, {} as Record<string, Guest>);
+      setGuests(guestsMap);
+      
       setError(null);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -163,6 +207,61 @@ export default function ReservationsPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  const filteredReservations = useMemo(() => {
+    return reservations.filter((res) => {
+      // 1. Status Filter
+      if (statusFilter !== "ALL" && res.status !== statusFilter) {
+        return false;
+      }
+
+      // 2. Search Query (Code or Guest Name)
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const codeMatch = res.code.toLowerCase().includes(query);
+        
+        // Guest Match
+        let guestMatch = false;
+        if (res.primaryGuestId && guests[res.primaryGuestId]) {
+          const guest = guests[res.primaryGuestId];
+          const fullName = `${guest.firstName} ${guest.lastName}`.toLowerCase();
+          guestMatch = fullName.includes(query) || (guest.email?.toLowerCase().includes(query) ?? false);
+        }
+
+        if (!codeMatch && !guestMatch) {
+          return false;
+        }
+      }
+
+      // 3. Date Range Filter (Check-in Date)
+      if (startDate || endDate) {
+        const checkIn = new Date(res.checkInDate); // Assuming local date string or UTC
+        // Normalize time for comparison
+        checkIn.setHours(0, 0, 0, 0);
+
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          if (checkIn < start) return false;
+        }
+
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(0, 0, 0, 0);
+          if (checkIn > end) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [reservations, guests, statusFilter, searchQuery, startDate, endDate]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("ALL");
+    setStartDate(null);
+    setEndDate(null);
+  };
+
   return (
     <Box component="main">
       <PageHeader
@@ -193,6 +292,73 @@ export default function ReservationsPage() {
         </Alert>
       )}
 
+      {/* Filters Toolbar */}
+      <Card
+        sx={{
+          p: 2,
+          mb: 1,
+          borderRadius: "18px",
+          boxShadow: tokens.shadows.card,
+          border: `1px solid ${tokens.colors.grey[200]}`,
+        }}
+      >
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+          <TextField
+            placeholder="Search booking or guest..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            size="small"
+            fullWidth
+            sx={{ flex: 2 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <TextField
+            select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            size="small"
+            sx={{ minWidth: 160, flex: 1 }}
+            fullWidth
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+             <Box sx={{ display: 'flex', gap: 1, flex: 2, width: '100%' }}>
+                <DatePicker
+                  label="Check-in From"
+                  value={startDate}
+                  onChange={(newValue) => setStartDate(newValue)}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                />
+                <DatePicker
+                  label="Check-in To"
+                  value={endDate}
+                  onChange={(newValue) => setEndDate(newValue)}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                />
+             </Box>
+          </LocalizationProvider>
+
+          <Tooltip title="Clear Filters">
+            <IconButton onClick={clearFilters} sx={{ bgcolor: tokens.colors.grey[100] }}>
+              <ClearIcon />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Card>
+
       <Card 
         sx={{ 
           borderRadius: "18px",
@@ -201,12 +367,13 @@ export default function ReservationsPage() {
           overflow: 'hidden',
         }}
       >
-        <TableContainer component={Paper} elevation={0} sx={{ height: 400 }}>
-          <Table>
+        <TableContainer component={Paper} elevation={0} sx={{ height: 340 }}>
+          <Table stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell width={60}>No</TableCell>
                 <TableCell>Booking</TableCell>
+                <TableCell>Guest</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Dates</TableCell>
                 <TableCell>Guests</TableCell>
@@ -215,34 +382,38 @@ export default function ReservationsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {reservations.length === 0 ? (
+              {filteredReservations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
                     <Box sx={{ textAlign: 'center' }}>
                       <EventIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" gutterBottom>
                         No reservations found
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                        Create your first reservation to get started
+                       {reservations.length === 0 ? "Create your first reservation to get started" : "Try adjusting your filters"}
                       </Typography>
-                      <Button
-                        variant="contained"
-                        component={Link}
-                        href="/admin/reservations/new"
-                        startIcon={<EventIcon />}
-                        size="small"
-                      >
-                        New Reservation
-                      </Button>
+                      {reservations.length === 0 && (
+                        <Button
+                          variant="contained"
+                          component={Link}
+                          href="/admin/reservations/new"
+                          startIcon={<EventIcon />}
+                          size="small"
+                        >
+                          New Reservation
+                        </Button>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>
               ) : (
-                reservations
+                filteredReservations
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   .map((res, index) => {
                   const statusConfig = STATUS_CONFIG[res.status] || STATUS_CONFIG.PENDING;
+                  const guest = res.primaryGuestId ? guests[res.primaryGuestId] : null;
+
                   return (
                     <TableRow 
                       key={res.id} 
@@ -274,6 +445,24 @@ export default function ReservationsPage() {
                             {res.channel || 'Direct'}
                           </Typography>
                         </Box>
+                      </TableCell>
+                      <TableCell>
+                         {guest ? (
+                            <Box>
+                                <Typography variant="body2" fontWeight={600}>
+                                    {guest.firstName} {guest.lastName}
+                                </Typography>
+                                {guest.email && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                        {guest.email}
+                                    </Typography>
+                                )}
+                            </Box>
+                         ) : (
+                             <Typography variant="caption" color="text.secondary" fontStyle="italic">
+                                 Guest info unavailable
+                             </Typography>
+                         )}
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -413,7 +602,7 @@ export default function ReservationsPage() {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={reservations.length}
+          count={filteredReservations.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

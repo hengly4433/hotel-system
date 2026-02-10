@@ -37,6 +37,7 @@ import {
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/contexts/ToastContext";
 
 type RatePlan = {
   id: string;
@@ -82,12 +83,13 @@ export default function NightlyPricesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [filters, setFilters] = useState(EMPTY_FILTER);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  
+  const { showSuccess, showError } = useToast();
 
   const loadLookups = useCallback(async () => {
     try {
@@ -98,9 +100,10 @@ export default function NightlyPricesPage() {
       setRatePlans(plansData);
       setRoomTypes(typesData);
     } catch (err) {
-      setError(getErrorMessage(err));
+      console.error("Failed to load lookups:", err);
+      showError("Failed to load rate plans and room types.");
     }
-  }, []);
+  }, [showError]);
 
   const loadPrices = useCallback(async () => {
     const params = new URLSearchParams();
@@ -114,11 +117,11 @@ export default function NightlyPricesPage() {
     try {
       const data = await apiJson<RatePlanPrice[]>(endpoint);
       setPrices(data);
-      setError(null);
     } catch (err) {
-      setError(getErrorMessage(err));
+      console.error("Failed to load prices:", err);
+      showError("Failed to load nightly prices.");
     }
-  }, [filters.from, filters.ratePlanId, filters.roomTypeId, filters.to]);
+  }, [filters.from, filters.ratePlanId, filters.roomTypeId, filters.to, showError]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -177,7 +180,6 @@ export default function NightlyPricesPage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
-    setError(null);
 
     const payload = {
       ratePlanId: form.ratePlanId,
@@ -193,16 +195,18 @@ export default function NightlyPricesPage() {
           method: "PUT",
           body: JSON.stringify(payload)
         });
+        showSuccess("Nightly price updated successfully.");
       } else {
         await apiJson("rate-plan-prices", {
           method: "POST",
           body: JSON.stringify(payload)
         });
+        showSuccess("Nightly price created successfully.");
       }
       await loadPrices();
       resetForm();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -212,9 +216,10 @@ export default function NightlyPricesPage() {
     if (!deleteId) return;
     try {
       await apiJson(`rate-plan-prices/${deleteId}`, { method: "DELETE" });
+      showSuccess("Nightly price deleted successfully.");
       await loadPrices();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     } finally {
       setDeleteId(null);
     }
@@ -241,109 +246,99 @@ export default function NightlyPricesPage() {
         }
       />
       
-      <Stack spacing={3}>
-        {error && (
-          <Alert severity="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
+      <Stack spacing={0}>
         {/* Filters Card */}
         <Card 
           sx={{ 
-            borderRadius: 3, 
+            p: 2,
+            borderRadius: "18px", 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
+            mb: 1,
           }}
         >
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Filters
-            </Typography>
-            <Grid container spacing={2} alignItems="flex-end">
-              <Grid size={{ xs: 12, md: 3 }}>
-                <Autocomplete
-                  options={ratePlans}
-                  getOptionLabel={(option) => `${option.code} — ${option.name}`}
-                  value={selectedFilterRatePlan}
-                  onChange={(_, newValue) => {
-                    setFilters({ ...filters, ratePlanId: newValue?.id || "" });
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Rate Plan"
-                      size="small"
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  )}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <Autocomplete
-                  options={roomTypes}
-                  getOptionLabel={(option) => option.name}
-                  value={selectedFilterRoomType}
-                  onChange={(_, newValue) => {
-                    setFilters({ ...filters, roomTypeId: newValue?.id || "" });
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Room Type"
-                      size="small"
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  )}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+            <Autocomplete
+              options={ratePlans}
+              getOptionLabel={(option) => `${option.code} — ${option.name}`}
+              value={selectedFilterRatePlan}
+              onChange={(_, newValue) => {
+                setFilters({ ...filters, ratePlanId: newValue?.id || "" });
+              }}
+              renderInput={(params) => (
                 <TextField
-                  type="date"
-                  label="From"
-                  value={filters.from}
-                  onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-                  fullWidth
+                  {...params}
+                  label="Rate Plan"
                   size="small"
                   InputLabelProps={{ shrink: true }}
                 />
-              </Grid>
-              <Grid size={{ xs: 12, md: 2 }}>
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              sx={{ flex: 1.5, minWidth: 200 }}
+              fullWidth
+            />
+            
+            <Autocomplete
+              options={roomTypes}
+              getOptionLabel={(option) => option.name}
+              value={selectedFilterRoomType}
+              onChange={(_, newValue) => {
+                setFilters({ ...filters, roomTypeId: newValue?.id || "" });
+              }}
+              renderInput={(params) => (
                 <TextField
-                  type="date"
-                  label="To"
-                  value={filters.to}
-                  onChange={(e) => setFilters({ ...filters, to: e.target.value })}
-                  fullWidth
+                  {...params}
+                  label="Room Type"
                   size="small"
                   InputLabelProps={{ shrink: true }}
                 />
-              </Grid>
-              <Grid size={{ xs: 12, md: 2 }}>
-                <Button 
-                  variant="outlined" 
-                  onClick={loadPrices} 
-                  fullWidth 
-                  startIcon={<FilterListIcon />}
-                >
-                  Apply
-                </Button>
-              </Grid>
-            </Grid>
-          </CardContent>
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              sx={{ flex: 1.5, minWidth: 200 }}
+              fullWidth
+            />
+
+            <TextField
+              type="date"
+              label="From"
+              value={filters.from}
+              onChange={(e) => setFilters({ ...filters, from: e.target.value })}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+
+            <TextField
+              type="date"
+              label="To"
+              value={filters.to}
+              onChange={(e) => setFilters({ ...filters, to: e.target.value })}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+
+            <Button 
+              variant="outlined" 
+              onClick={loadPrices} 
+              startIcon={<FilterListIcon />}
+              sx={{ minWidth: 100, height: 40 }}
+            >
+              Apply
+            </Button>
+          </Stack>
         </Card>
 
         {/* Collapsible Form */}
         <Collapse in={showForm}>
-          <Card 
-            sx={{ 
-              borderRadius: 3, 
-              boxShadow: tokens.shadows.card,
-              border: `1px solid ${tokens.colors.grey[200]}`,
-            }}
-          >
+          <Box sx={{ pt: 2, pb: 3 }}>
+            <Card 
+              sx={{ 
+                borderRadius: "18px", 
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`,
+              }}
+            >
             <CardContent sx={{ p: 4 }}>
               <Box
                 sx={{
@@ -482,28 +477,29 @@ export default function NightlyPricesPage() {
                 </Grid>
               </Box>
             </CardContent>
-          </Card>
+            </Card>
+          </Box>
         </Collapse>
 
         {/* Table */}
         <Card 
           sx={{ 
-            borderRadius: 3, 
+            borderRadius: "18px", 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
             overflow: 'hidden',
           }}
         >
-          <TableContainer component={Paper} elevation={0}>
+          <TableContainer component={Paper} elevation={0} sx={{ height: 340 }}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 60 }}>No</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Rate Plan</TableCell>
-                  <TableCell>Room Type</TableCell>
-                  <TableCell>Price</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                <TableRow sx={{ bgcolor: alpha(tokens.colors.primary.main, 0.04) }}>
+                  <TableCell sx={{ width: 60, fontWeight: 700, color: tokens.colors.grey[600] }}>NO</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>DATE</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>RATE PLAN</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>ROOM TYPE</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>PRICE</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: tokens.colors.grey[600] }}>ACTIONS</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -513,19 +509,21 @@ export default function NightlyPricesPage() {
                       <Box sx={{ textAlign: 'center' }}>
                         <PriceIcon sx={{ fontSize: 48, color: tokens.colors.grey[300], mb: 2 }} />
                         <Typography variant="h6" color="text.secondary" gutterBottom>
-                          No prices found
+                           No prices found
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Create your first nightly price
+                           {Object.values(filters).some(Boolean) ? "Try different filters" : "Create your first nightly price"}
                         </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => setShowForm(true)}
-                          size="small"
-                        >
-                          Add Price
-                        </Button>
+                        {!Object.values(filters).some(Boolean) && (
+                          <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => setShowForm(true)}
+                            size="small"
+                          >
+                            Add Price
+                          </Button>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>

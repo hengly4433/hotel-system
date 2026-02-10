@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "Hotel management admin"
 };
 
+import { UserProvider } from "@/contexts/UserContext";
+
 export default function RootLayout({
   children
 }: {
@@ -15,7 +17,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ThemeRegistry>{children}</ThemeRegistry>
+        <ThemeRegistry>
+          <UserProvider>
+            {children}
+          </UserProvider>
+        </ThemeRegistry>
       </body>
     </html>
   );

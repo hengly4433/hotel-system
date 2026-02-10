@@ -54,4 +54,7 @@ export const reportsApi = {
 
   getHousekeeping: () =>
     apiJson<HousekeepingStatusItem[]>("/reports/housekeeping"),
+  getNewBookingsCount: (date?: string) => {
+    return apiJson<number>(`reports/new-bookings${date ? `?date=${date}` : ""}`);
+  },
 };

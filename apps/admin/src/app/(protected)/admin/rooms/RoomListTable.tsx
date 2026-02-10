@@ -67,7 +67,7 @@ export default function RoomListTable({
         overflow: 'hidden',
       }}
     >
-      <TableContainer component={Paper} elevation={0} sx={{ height: 400 }}>
+      <TableContainer component={Paper} elevation={0} sx={{ height: 340 }}>
         <Table>
           <TableHead>
             <TableRow>

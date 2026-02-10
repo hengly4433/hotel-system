@@ -28,6 +28,8 @@ import {
   Avatar,
   Collapse,
   alpha,
+  InputAdornment,
+  Tooltip
 } from "@mui/material";
 import { 
   Edit as EditIcon, 
@@ -35,6 +37,8 @@ import {
   Add as AddIcon,
   Close as CloseIcon,
   Category as RoomTypeIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon
 } from "@mui/icons-material";
 import { tokens } from "@/lib/theme";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -84,6 +88,10 @@ export default function RoomTypesPage() {
   const [uploading, setUploading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState("ALL");
 
   const loadData = useCallback(async () => {
     try {
@@ -191,6 +199,30 @@ export default function RoomTypesPage() {
     return map;
   }, [properties]);
 
+  const filteredRoomTypes = useMemo(() => {
+    return roomTypes.filter((type) => {
+      // 1. Property Filter
+      if (propertyFilter !== "ALL" && type.propertyId !== propertyFilter) {
+        return false;
+      }
+
+      // 2. Search Query (Name or Code)
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const codeMatch = type.code.toLowerCase().includes(query);
+        const nameMatch = type.name.toLowerCase().includes(query);
+        if (!codeMatch && !nameMatch) return false;
+      }
+
+      return true;
+    });
+  }, [roomTypes, propertyFilter, searchQuery]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setPropertyFilter("ALL");
+  };
+
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -269,18 +301,71 @@ export default function RoomTypesPage() {
         }
       />
       
-      <Stack spacing={3}>
+      <Stack spacing={1}>
         {error && (
           <Alert severity="error" onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
+        {/* Filters Toolbar - Only show when NOT editing/creating */}
+        {!showForm && (
+            <Card
+              sx={{
+                p: 2,
+                borderRadius: "18px",
+                boxShadow: tokens.shadows.card,
+                border: `1px solid ${tokens.colors.grey[200]}`,
+              }}
+            >
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+                <TextField
+                  placeholder="Search by name or code..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  size="small"
+                  fullWidth
+                  sx={{ flex: 2 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                <TextField
+                  select
+                  label="Property"
+                  value={propertyFilter}
+                  onChange={(e) => setPropertyFilter(e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 200, flex: 1 }}
+                  fullWidth
+                >
+                  <MenuItem value="ALL">All Properties</MenuItem>
+                  {properties.map((prop) => (
+                    <MenuItem key={prop.id} value={prop.id}>
+                      {prop.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                 <Tooltip title="Clear Filters">
+                  <IconButton onClick={clearFilters} sx={{ bgcolor: tokens.colors.grey[100] }}>
+                    <ClearIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            </Card>
+        )}
+
         {/* Form Card */}
         <Collapse in={showForm}>
           <Card 
             sx={{ 
-              borderRadius: 3, 
+              borderRadius: "18px", 
               boxShadow: tokens.shadows.card,
               border: `1px solid ${tokens.colors.grey[200]}`,
             }}
@@ -588,13 +673,13 @@ export default function RoomTypesPage() {
         {/* Table Card */}
         <Card 
           sx={{ 
-            borderRadius: 3, 
+            borderRadius: "18px", 
             boxShadow: tokens.shadows.card,
             border: `1px solid ${tokens.colors.grey[200]}`,
             overflow: 'hidden',
           }}
         >
-          <TableContainer component={Paper} elevation={0}>
+          <TableContainer component={Paper} elevation={0} sx={{ height: 340 }}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -609,7 +694,7 @@ export default function RoomTypesPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {roomTypes.length === 0 ? (
+                {filteredRoomTypes.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
                       <Box sx={{ textAlign: 'center' }}>
@@ -618,7 +703,7 @@ export default function RoomTypesPage() {
                           No room types found
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Create your first room category
+                           {searchQuery || propertyFilter !== "ALL" ? "Try adjusting filters" : "Create your first room category"}
                         </Typography>
                         <Button
                           variant="contained"
@@ -632,7 +717,7 @@ export default function RoomTypesPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  roomTypes
+                  filteredRoomTypes
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((roomType, index) => (
                     <TableRow 
@@ -705,11 +790,11 @@ export default function RoomTypesPage() {
               </TableBody>
             </Table>
           </TableContainer>
-          {roomTypes.length > 0 && (
+          {filteredRoomTypes.length > 0 && (
             <TablePagination
               rowsPerPageOptions={[5, 10, 25]}
               component="div"
-              count={roomTypes.length}
+              count={filteredRoomTypes.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
