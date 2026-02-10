@@ -13,7 +13,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <SideNav />
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", width: `calc(100% - ${DRAWER_WIDTH}px)`, height: "100vh", overflow: "hidden" }}>
         <TopBar />
-        <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: "auto", display: "flex", flexDirection: "column" }}>
           {children}
         </Box>
       </Box>
