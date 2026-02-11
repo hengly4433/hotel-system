@@ -104,12 +104,26 @@ Each reservation has a **folio** (bill) that tracks:
 - Log maintenance requests for rooms
 - Track repair status and resolution
 
+#### Employee & Timesheet Management
+
+- **Staff Profiles** — Manage employee details, roles, and departments
+- **Shift Management** — Track work schedules and timesheets
+- **Payroll Support** — Calculate hours worked for payroll processing
+
+#### Notification System
+
+- **Real-time Alerts** — In-app notifications for new bookings, tasks, and system events
+- **Message Center** — Centralized inbox for all system communications
+
 #### Reports & Analytics
 
-- Occupancy rates
-- Revenue reports
-- Reservation statistics
-- Housekeeping performance
+- **Occupancy** — Room occupancy rates by date range
+- **Revenue** — Revenue breakdown by room type and rate plan
+- **Reservations** — Booking statistics and trends
+- **Housekeeping** — Task completion rates and performance
+- **Financial** — Folio and payment summaries
+- **Guest Insights** — Demographics and stay patterns
+- **Audit Logs** — Detailed tracking of all critical system actions
 
 ---
 
@@ -156,6 +170,19 @@ The system maintains guest profiles that:
 - Link to booking history
 - Auto-populate for returning guests
 
+### Organization Management
+
+- **Property Settings** — Configure hotel details, policies, and preferences
+- **Department Structure** — Organize staff and resources by department
+
+### Audit Logging & Security
+
+The system maintains a comprehensive audit trail for security and accountability:
+
+- **Action Tracking** — Records who did what and when for all critical operations
+- **Change History** — Captures before/after states for data modifications
+- **Security** — Standardized logging for compliance and troubleshooting
+
 ---
 
 ## User Workflows
@@ -200,7 +227,7 @@ The system maintains guest profiles that:
 The admin console also provides:
 
 - **Blog Management** — Publish news and updates
-- **Gallery** — Manage property photos
+- **Gallery** — Manage property and room photos
 - **Page Content** — Edit static pages (About, Contact, etc.)
 
 ---

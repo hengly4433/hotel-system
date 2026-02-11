@@ -56,7 +56,7 @@ export default function PayrollPage() {
                     Filter Data
                 </Typography>
                 <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <TextField
                             label="From Date"
                             type="date"
@@ -67,7 +67,7 @@ export default function PayrollPage() {
                             size="small"
                         />
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <TextField
                             label="To Date"
                             type="date"
