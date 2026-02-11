@@ -34,8 +34,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setUser(data);
             setError(null);
         } catch (err) {
-            console.error("Failed to fetch user:", err);
-            setError(err instanceof Error ? err.message : "Failed to fetch user profile");
+            // Only log if it's NOT a 401 error
+            const errorMessage = err instanceof Error ? err.message : "Failed to fetch user profile";
+            if (!errorMessage.includes("401")) {
+                console.error("Failed to fetch user:", err);
+            }
+            setError(errorMessage);
             // Don't clear user on error to allow "stale-while-revalidate" feel if needed?
             // tailored to existing behavior: existing hook set user=null on error.
             // keeping it safe.
