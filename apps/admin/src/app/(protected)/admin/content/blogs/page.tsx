@@ -190,7 +190,7 @@ export default function BlogsPage() {
             >
               <CardContent sx={{ p: 2 }}>
                 <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
                       fullWidth
                       value={searchQuery}
@@ -206,7 +206,7 @@ export default function BlogsPage() {
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <TextField
                       select
                       fullWidth
@@ -223,7 +223,7 @@ export default function BlogsPage() {
                       ))}
                     </TextField>
                   </Grid>
-                  <Grid item xs={12} md={2}>
+                  <Grid size={{ xs: 12, md: 2 }}>
                     <Button
                       fullWidth
                       variant="outlined"

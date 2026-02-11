@@ -32,9 +32,11 @@ type Blog = {
   id: string;
   title: string;
   tag: string;
+  slug: string;
   description: string;
   imageUrl: string;
   isActive: boolean;
+  content: string;
   createdAt: string;
 };
 
