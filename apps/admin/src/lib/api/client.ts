@@ -12,8 +12,12 @@ export async function apiFetch(path: string, init?: RequestInit) {
       // Trigger logout to clear cookies
       await fetch("/api/auth/logout", { method: "POST" });
       
-      // Redirect to login only if not already there
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      // Redirect to login only if not already there and not on register page
+      if (
+        typeof window !== "undefined" && 
+        !window.location.pathname.startsWith("/login") && 
+        !window.location.pathname.startsWith("/register")
+      ) {
         window.location.href = "/login?reason=session_expired";
       }
     }
