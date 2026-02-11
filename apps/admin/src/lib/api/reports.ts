@@ -36,12 +36,25 @@ export interface HousekeepingStatusItem {
   assignedTo: string;
 }
 
+export interface PayrollReportItem {
+  employeeId: string;
+  employeeName: string;
+  jobTitle: string;
+  department: string;
+  hourlyRate: number;
+  totalMinutes: number;
+  totalPay: number;
+}
+
 export const reportsApi = {
   getRevenue: (params: DateRangeParams) =>
     apiJson<RevenueReportItem[]>(`/reports/revenue?fromDate=${params.fromDate}&toDate=${params.toDate}`),
 
   getOccupancy: (params: DateRangeParams) =>
     apiJson<OccupancyReportItem[]>(`/reports/occupancy?fromDate=${params.fromDate}&toDate=${params.toDate}`),
+
+  getPayroll: (params: DateRangeParams) =>
+    apiJson<PayrollReportItem[]>(`/reports/payroll?fromDate=${params.fromDate}&toDate=${params.toDate}`),
 
   getGuestsInHouse: (date?: string) =>
     apiJson<GuestInHouseItem[]>(`/reports/guests-in-house${date ? `?date=${date}` : ""}`),

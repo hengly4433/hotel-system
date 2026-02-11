@@ -1,4 +1,9 @@
 package com.blockcode.hotel.report.application;
+import com.blockcode.hotel.employee.infra.EmployeeRepository;
+import com.blockcode.hotel.employee.domain.EmployeeEntity;
+import com.blockcode.hotel.report.api.dto.PayrollReportResponse;
+import com.blockcode.hotel.timesheet.domain.EmployeeTimesheetEntity;
+import com.blockcode.hotel.timesheet.infra.EmployeeTimesheetRepository;
 
 import com.blockcode.hotel.finance.infra.PaymentRepository;
 import com.blockcode.hotel.guest.domain.GuestEntity;
@@ -40,6 +45,8 @@ public class ReportService {
     private final HousekeepingTaskRepository housekeepingTaskRepository;
     private final RoomTypeRepository roomTypeRepository;
     private final com.blockcode.hotel.reservation.infra.ReservationRoomRepository reservationRoomRepository;
+    private final EmployeeTimesheetRepository timesheetRepository;
+    private final EmployeeRepository employeeRepository;
 
     public ReportService(PaymentRepository paymentRepository,
             RoomRepository roomRepository,
@@ -49,7 +56,9 @@ public class ReportService {
             PersonRepository personRepository,
             HousekeepingTaskRepository housekeepingTaskRepository,
             RoomTypeRepository roomTypeRepository,
-            com.blockcode.hotel.reservation.infra.ReservationRoomRepository reservationRoomRepository) {
+            com.blockcode.hotel.reservation.infra.ReservationRoomRepository reservationRoomRepository,
+            EmployeeTimesheetRepository timesheetRepository,
+            EmployeeRepository employeeRepository) {
         this.paymentRepository = paymentRepository;
         this.roomRepository = roomRepository;
         this.reservationNightRepository = reservationNightRepository;
@@ -59,6 +68,8 @@ public class ReportService {
         this.housekeepingTaskRepository = housekeepingTaskRepository;
         this.roomTypeRepository = roomTypeRepository;
         this.reservationRoomRepository = reservationRoomRepository;
+        this.timesheetRepository = timesheetRepository;
+        this.employeeRepository = employeeRepository;
     }
 
     public List<RevenueReportResponse> getRevenueReport(LocalDate fromDate, LocalDate toDate) {
@@ -188,5 +199,62 @@ public class ReportService {
         return reservationRepository.countReservationsCreatedBetween(
                 date.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                 date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+    }
+
+    public List<PayrollReportResponse> getPayrollReport(LocalDate fromDate, LocalDate toDate) {
+        List<EmployeeTimesheetEntity> timesheets = timesheetRepository.findAllByWorkDateBetweenAndDeletedAtIsNull(fromDate, toDate);
+        
+        // Group by employee
+        var timesheetsByEmployee = timesheets.stream()
+                .collect(Collectors.groupingBy(EmployeeTimesheetEntity::getEmployeeId));
+
+        List<PayrollReportResponse> report = new ArrayList<>();
+        
+        // Fetch all employees (could optimize to fetchByIds but findAll is fine for now)
+        var employees = employeeRepository.findAll().stream()
+                .collect(Collectors.toMap(EmployeeEntity::getId, e -> e));
+
+        for (var entry : timesheetsByEmployee.entrySet()) {
+            UUID employeeId = entry.getKey();
+            List<EmployeeTimesheetEntity> employeeTimesheets = entry.getValue();
+            EmployeeEntity employee = employees.get(employeeId);
+            
+            if (employee == null) continue;
+
+            // Calculate total minutes
+            int totalMinutes = employeeTimesheets.stream()
+                    .mapToInt(EmployeeTimesheetEntity::getTotalMinutes)
+                    .sum();
+            
+            // Calculate total pay
+            java.math.BigDecimal hourlyRate = employee.getHourlyRate() != null ? employee.getHourlyRate() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal hours = new java.math.BigDecimal(totalMinutes).divide(new java.math.BigDecimal(60), 2, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal totalPay = hours.multiply(hourlyRate).setScale(2, java.math.RoundingMode.HALF_UP);
+
+            String name = "";
+            try {
+               // Need to fetch Person to get name. Employee has personId.
+               // Since we are iterating, N+1 query here. 
+               // Optimally we should join, but adapting existing pattern:
+               var person = personRepository.findById(employee.getPersonId()).orElse(null);
+               if (person != null) {
+                   name = person.getFirstName() + " " + person.getLastName();
+               }
+            } catch (Exception e) {
+               name = "Unknown";
+            }
+
+            report.add(new PayrollReportResponse(
+                employee.getId(),
+                name,
+                employee.getJobTitle(),
+                employee.getDepartment(),
+                hourlyRate,
+                totalMinutes,
+                totalPay
+            ));
+        }
+
+        return report;
     }
 }

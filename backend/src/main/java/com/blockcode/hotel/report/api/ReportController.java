@@ -3,6 +3,7 @@ package com.blockcode.hotel.report.api;
 import com.blockcode.hotel.report.api.dto.GuestInHouseResponse;
 import com.blockcode.hotel.report.api.dto.HousekeepingStatusResponse;
 import com.blockcode.hotel.report.api.dto.OccupancyReportResponse;
+import com.blockcode.hotel.report.api.dto.PayrollReportResponse;
 import com.blockcode.hotel.report.api.dto.RevenueReportResponse;
 import com.blockcode.hotel.report.application.ReportService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -78,5 +79,13 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         LocalDate targetDate = date != null ? date : LocalDate.now();
         return reportService.getNewBookingsCount(targetDate);
+    }
+
+    @GetMapping("/payroll")
+    @PreAuthorize("hasAuthority('report.READ') or hasAuthority('rbac.ADMIN')")
+    public List<PayrollReportResponse> getPayrollReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return reportService.getPayrollReport(fromDate, toDate);
     }
 }
