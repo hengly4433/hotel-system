@@ -62,7 +62,6 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.GET, "/api/v1/public/auth/me").authenticated()
             .requestMatchers(HttpMethod.GET, "/api/v1/public/reservations/me").hasAuthority("customer.BOOK")
             .requestMatchers(HttpMethod.POST, "/api/v1/public/reservations").hasAuthority("customer.BOOK")
-            .requestMatchers("/api/public/blogs", "/api/public/page-contents", "/api/public/**").permitAll()
             .requestMatchers("/api/v1/public/**").permitAll()
             .requestMatchers("/actuator/health").permitAll()
             .anyRequest().authenticated())

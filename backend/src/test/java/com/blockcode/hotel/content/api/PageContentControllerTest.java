@@ -41,12 +41,12 @@ public class PageContentControllerTest {
     public void getPublicPageContents_ShouldReturnOk() throws Exception {
         when(pageContentService.list()).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/public/page-contents"))
+        mockMvc.perform(get("/api/v1/public/page-contents"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(username = "admin", roles = { "ADMIN" }, authorities = { "content.read" })
+    @WithMockUser(username = "admin", authorities = { "content.read", "ROLE_ADMIN" })
     public void getAdminPageContents_ShouldReturnOk() throws Exception {
         when(pageContentService.list()).thenReturn(List.of());
 

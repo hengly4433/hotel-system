@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiJson } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -8,9 +9,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
-  TextField,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -22,20 +20,18 @@ import {
   Typography,
   Alert,
   Stack,
-  Grid,
   Chip,
   TablePagination,
   Avatar,
   alpha,
-  Collapse,
   Tooltip,
+  TextField,
   InputAdornment,
 } from "@mui/material";
 import { 
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   Add as AddIcon, 
-  Close as CloseIcon,
   Person as PersonIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
@@ -64,8 +60,6 @@ type Guest = {
   notes: string | null;
 };
 
-const TIERS = ["NONE", "SILVER", "GOLD", "PLATINUM"] as const;
-
 const TIER_COLORS: Record<string, { bg: string; color: string; gradient?: string }> = {
   NONE: { bg: tokens.colors.grey[100], color: tokens.colors.grey[600] },
   SILVER: { bg: alpha('#94a3b8', 0.15), color: '#475569', gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)' },
@@ -73,28 +67,9 @@ const TIER_COLORS: Record<string, { bg: string; color: string; gradient?: string
   PLATINUM: { bg: alpha('#8b5cf6', 0.15), color: '#6d28d9', gradient: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)' },
 };
 
-const EMPTY_FORM = {
-  firstName: "",
-  lastName: "",
-  dob: "",
-  phone: "",
-  email: "",
-  addressLine1: "",
-  addressLine2: "",
-  city: "",
-  state: "",
-  postalCode: "",
-  country: "",
-  loyaltyTier: "NONE",
-  notes: "",
-};
-
 export default function GuestsPage() {
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { showSuccess, showError } = useToast();
@@ -115,71 +90,6 @@ export default function GuestsPage() {
     }, 0);
     return () => clearTimeout(timer);
   }, [loadData]);
-
-  function startEdit(guest: Guest) {
-    setEditingId(guest.id);
-    setForm({
-      firstName: guest.firstName,
-      lastName: guest.lastName,
-      dob: guest.dob || "",
-      phone: guest.phone || "",
-      email: guest.email || "",
-      addressLine1: guest.addressLine1 || "",
-      addressLine2: guest.addressLine2 || "",
-      city: guest.city || "",
-      state: guest.state || "",
-      postalCode: guest.postalCode || "",
-      country: guest.country || "",
-      loyaltyTier: guest.loyaltyTier || "NONE",
-      notes: guest.notes || "",
-    });
-    setShowForm(true);
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setShowForm(false);
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    const payload = {
-      ...form,
-      dob: form.dob || null,
-      phone: form.phone || null,
-      email: form.email || null,
-      addressLine1: form.addressLine1 || null,
-      addressLine2: form.addressLine2 || null,
-      city: form.city || null,
-      state: form.state || null,
-      postalCode: form.postalCode || null,
-      country: form.country || null,
-      notes: form.notes || null,
-    };
-
-    try {
-      if (editingId) {
-        await apiJson(`guests/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-        showSuccess("Guest updated successfully");
-      } else {
-        await apiJson("guests", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        showSuccess("Guest created successfully");
-      }
-      await loadData();
-      resetForm();
-    } catch (err) {
-      showError(getErrorMessage(err));
-    }
-  }
 
   async function handleDelete() {
     if (!deleteId) return;
@@ -239,18 +149,17 @@ export default function GuestsPage() {
         title="Guests"
         subtitle="Manage guest profiles and loyalty status"
         action={
-          !showForm ? (
+          <Link href="/admin/guests/new" passHref>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setShowForm(true)}
               sx={{
                 boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
               }}
             >
               New Guest
             </Button>
-          ) : null
+          </Link>
         }
       />
 
@@ -260,233 +169,6 @@ export default function GuestsPage() {
             {error}
           </Alert>
         )}
-
-        {/* Form Card */}
-        <Collapse in={showForm}>
-          <Card 
-            sx={{ 
-              borderRadius: "18px", 
-              boxShadow: tokens.shadows.card,
-              border: `1px solid ${tokens.colors.grey[200]}`,
-            }}
-          >
-            <CardContent sx={{ p: 4 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 4,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      bgcolor: alpha(tokens.colors.primary.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <PersonIcon sx={{ color: tokens.colors.primary.main }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
-                      {editingId ? "Edit Guest" : "Create New Guest"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {editingId ? "Update guest information" : "Add a new guest to the system"}
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton 
-                  onClick={resetForm} 
-                  size="small"
-                  sx={{
-                    bgcolor: tokens.colors.grey[100],
-                    '&:hover': {
-                      bgcolor: tokens.colors.grey[200],
-                    }
-                  }}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
-              
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="First Name"
-                      value={form.firstName}
-                      onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                      required
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Last Name"
-                      value={form.lastName}
-                      onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                      required
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Email"
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Phone"
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Date of Birth"
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      value={form.dob}
-                      onChange={(e) => setForm({ ...form, dob: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      select
-                      fullWidth
-                      label="Loyalty Tier"
-                      value={form.loyaltyTier}
-                      onChange={(e) => setForm({ ...form, loyaltyTier: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                    >
-                      {TIERS.map((tier) => (
-                        <MenuItem key={tier} value={tier}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {tier !== 'NONE' && <StarIcon sx={{ fontSize: 16, color: TIER_COLORS[tier].color }} />}
-                            {tier}
-                          </Box>
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold', color: tokens.colors.grey[700] }}>
-                      Address Information
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 12 }}>
-                        <TextField
-                          fullWidth
-                          label="Address Line 1"
-                          value={form.addressLine1}
-                          onChange={(e) => setForm({ ...form, addressLine1: e.target.value })}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12 }}>
-                        <TextField
-                          fullWidth
-                          label="Address Line 2"
-                          value={form.addressLine2}
-                          onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <TextField
-                          fullWidth
-                          label="City"
-                          value={form.city}
-                          onChange={(e) => setForm({ ...form, city: e.target.value })}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <TextField
-                          fullWidth
-                          label="State"
-                          value={form.state}
-                          onChange={(e) => setForm({ ...form, state: e.target.value })}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <TextField
-                          fullWidth
-                          label="Postal Code"
-                          value={form.postalCode}
-                          onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <TextField
-                          fullWidth
-                          label="Country"
-                          value={form.country}
-                          onChange={(e) => setForm({ ...form, country: e.target.value })}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                    </Grid>
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      fullWidth
-                      label="Notes"
-                      multiline
-                      rows={2}
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12 }}>
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
-                      <Button 
-                        onClick={resetForm} 
-                        variant="outlined"
-                        sx={{ px: 3 }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        variant="contained"
-                        sx={{ 
-                          px: 4,
-                          boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.35)}`,
-                        }}
-                      >
-                        {editingId ? "Update Guest" : "Create Guest"}
-                      </Button>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-            </CardContent>
-          </Card>
-        </Collapse>
 
         <Card 
           sx={{ 
@@ -543,14 +225,15 @@ export default function GuestsPage() {
                            {searchQuery ? "Try a different search term" : "Get started by adding your first guest"}
                         </Typography>
                         {!searchQuery && (
-                          <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={() => setShowForm(true)}
-                            size="small"
-                          >
-                            Add Guest
-                          </Button>
+                          <Link href="/admin/guests/new" passHref>
+                            <Button
+                              variant="contained"
+                              startIcon={<AddIcon />}
+                              size="small"
+                            >
+                              Add Guest
+                            </Button>
+                          </Link>
                         )}
                       </Box>
                     </TableCell>
@@ -637,19 +320,20 @@ export default function GuestsPage() {
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                           <Tooltip title="Edit">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => startEdit(guest)}
-                              sx={{
-                                bgcolor: alpha(tokens.colors.primary.main, 0.08),
-                                color: tokens.colors.primary.main,
-                                '&:hover': {
-                                  bgcolor: alpha(tokens.colors.primary.main, 0.15),
-                                }
-                              }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
+                            <Link href={`/admin/guests/${guest.id}`} passHref>
+                              <IconButton 
+                                size="small" 
+                                sx={{
+                                  bgcolor: alpha(tokens.colors.primary.main, 0.08),
+                                  color: tokens.colors.primary.main,
+                                  '&:hover': {
+                                    bgcolor: alpha(tokens.colors.primary.main, 0.15),
+                                  }
+                                }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Link>
                           </Tooltip>
                           <Tooltip title="Delete">
                             <IconButton 

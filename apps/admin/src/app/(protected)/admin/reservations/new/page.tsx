@@ -176,7 +176,7 @@ export default function NewReservationPage() {
     <Box component="main">
       <PageHeader title="New Reservation" subtitle="Create a new booking" />
       
-      <Stack spacing={3} sx={{ mt: 3 }}>
+      <Stack spacing={3} sx={{ mt: 3, pb: 20 }}>
         {error && (
           <Alert severity="error" onClose={() => setError(null)}>
             {error}
@@ -582,7 +582,42 @@ export default function NewReservationPage() {
               </Card>
 
               {/* Submit Button */}
-              <Box sx={{ textAlign: 'right' }}>
+              <Box
+                sx={{
+                  position: 'fixed',
+                  bottom: 0,
+                  right: 0,
+                  width: { xs: '100%', md: 'calc(100% - 260px)' }, // Match AppShell layout
+                  px: 3,
+                  pt: 2,
+                  pb: 2,
+                  bgcolor: 'background.paper',
+                  borderTop: `1px solid ${tokens.colors.grey[200]}`,
+                  zIndex: 20,
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: 2,
+                }}
+              >
+                <Button
+                  variant="outlined"
+                  size="medium"
+                  disabled={isSubmitting}
+                  onClick={() => router.push("/admin/reservations")}
+                  sx={{
+                    px: 3,
+                    py: 1,
+                    borderRadius: 2,
+                    borderColor: tokens.colors.grey[300],
+                    color: tokens.colors.grey[700],
+                    '&:hover': {
+                      borderColor: tokens.colors.grey[400],
+                      bgcolor: tokens.colors.grey[50],
+                    }
+                  }}
+                >
+                  Cancel
+                </Button>
                 <Button 
                   type="submit" 
                   variant="contained" 
@@ -591,7 +626,8 @@ export default function NewReservationPage() {
                   startIcon={isSubmitting ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
                   sx={{ 
                     px: 4, 
-                    py: 1.25,
+                    py: 1,
+                    borderRadius: 2,
                     boxShadow: `0 4px 14px ${alpha(tokens.colors.primary.main, 0.3)}`,
                   }}
                 >

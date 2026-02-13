@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { publicApi } from "@/lib/publicApi";
 
 type PropertyOption = {
@@ -12,6 +13,7 @@ type RoomType = {
   id: string;
   name: string;
   baseDescription: string | null;
+  defaultBedType: string | null;
   images: Array<{
     url: string;
     isPrimary: boolean;
@@ -19,9 +21,9 @@ type RoomType = {
 };
 
 type AboutPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     propertyId?: string;
-  };
+  }>;
 };
 
 function propertyLabel(property: PropertyOption) {
@@ -40,9 +42,10 @@ function primaryImage(roomType: RoomType) {
 export const dynamic = "force-dynamic";
 
 export default async function AboutPage({ searchParams }: AboutPageProps) {
+  const params = await (searchParams ?? Promise.resolve({}));
   let properties: PropertyOption[] = [];
   let roomTypes: RoomType[] = [];
-  let selectedPropertyId = searchParams?.propertyId || "";
+  let selectedPropertyId = (params as { propertyId?: string }).propertyId || "";
 
   try {
     properties = await publicApi<PropertyOption[]>("/public/properties");
@@ -67,6 +70,7 @@ export default async function AboutPage({ searchParams }: AboutPageProps) {
     <main>
       <section className="page-hero">
         <div className="container">
+          <span className="page-hero-badge">Discover Our Story</span>
           <h1>About Us</h1>
           <p>Harborlight is a coastal sanctuary for slow mornings, thoughtful design, and restorative stays.</p>
         </div>
@@ -75,7 +79,8 @@ export default async function AboutPage({ searchParams }: AboutPageProps) {
       <section className="section">
         <div className="container about-grid">
           <div>
-            <h2 className="section-title">Our Story</h2>
+            <span className="section-eyebrow">Our Story</span>
+            <h2 className="section-title">A Retreat By The Tides</h2>
             <p>
               Harborlight began as a seaside retreat built around the rhythm of the tides. Every suite pairs warm
               textures with coastal light, offering a calm place to return to after long walks, lively dinners, and
@@ -85,9 +90,23 @@ export default async function AboutPage({ searchParams }: AboutPageProps) {
               Our team curates each stay with quiet intention: locally inspired cuisine, personal concierge service, and
               spaces that invite you to linger.
             </p>
-            <button className="btn btn-dark" type="button">
-              Read More
-            </button>
+            <div className="about-stats">
+              <div className="about-stat">
+                <span className="about-stat-number">50+</span>
+                <span className="about-stat-label">Curated Rooms</span>
+              </div>
+              <div className="about-stat">
+                <span className="about-stat-number">12</span>
+                <span className="about-stat-label">Years of Service</span>
+              </div>
+              <div className="about-stat">
+                <span className="about-stat-number">4.9</span>
+                <span className="about-stat-label">Guest Rating</span>
+              </div>
+            </div>
+            <Link href="/rooms" className="btn btn-dark">
+              Explore Our Rooms
+            </Link>
           </div>
           <div className="about-image">
             <img
@@ -101,11 +120,12 @@ export default async function AboutPage({ searchParams }: AboutPageProps) {
       <section className="section" style={{ background: "var(--surface-muted)" }}>
         <div className="container">
           <div className="section-center">
+            <span className="section-eyebrow">Accommodations</span>
             <h2 className="section-title centered">Signature Rooms</h2>
             <p>Hand-finished spaces with layered textures and uninterrupted coastal views.</p>
           </div>
           {properties.length > 0 && (
-            <form method="GET" className="booking-form booking-form-light" style={{ marginBottom: 32 }}>
+            <form method="GET" className="booking-form booking-form-light property-filter-form">
               <label>
                 Property
                 <select name="propertyId" defaultValue={selectedPropertyId} required>
@@ -133,6 +153,9 @@ export default async function AboutPage({ searchParams }: AboutPageProps) {
                       <div className="room-image-placeholder">No image</div>
                     )}
                     <div className="room-card-body">
+                      {room.defaultBedType && (
+                        <span className="room-badge">{room.defaultBedType}</span>
+                      )}
                       <h3>{room.name}</h3>
                       <p style={{ marginBottom: 0 }}>{room.baseDescription || "Designed for comfort."}</p>
                     </div>
@@ -140,7 +163,10 @@ export default async function AboutPage({ searchParams }: AboutPageProps) {
                 );
               })
             ) : (
-              <div className="empty-state">No rooms are published for this property yet.</div>
+              <div className="empty-state">
+                <div className="empty-state-icon">🏨</div>
+                <p style={{ margin: 0 }}>No rooms are published for this property yet.</p>
+              </div>
             )}
           </div>
         </div>

@@ -65,6 +65,11 @@ public class PublicController {
     return roomTypeService.listByPropertyId(propertyId);
   }
 
+  @GetMapping("/room-types/{id}")
+  public RoomTypeResponse getRoomType(@PathVariable UUID id) {
+    return roomTypeService.get(id);
+  }
+
   @GetMapping("/rate-plans")
   public List<RatePlanResponse> ratePlans(
       @RequestParam UUID propertyId,

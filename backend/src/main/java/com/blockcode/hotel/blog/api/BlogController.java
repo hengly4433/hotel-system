@@ -20,7 +20,7 @@ public class BlogController {
         this.blogService = blogService;
     }
 
-    @GetMapping("/api/public/blogs")
+    @GetMapping("/api/v1/public/blogs")
     public List<BlogResponse> listPublic() {
         return blogService.listPublic();
     }

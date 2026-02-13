@@ -19,7 +19,7 @@ public class PageContentController {
         this.pageContentService = pageContentService;
     }
 
-    @GetMapping("/api/public/page-contents")
+    @GetMapping("/api/v1/public/page-contents")
     public List<PageContentResponse> listPublic() {
         return pageContentService.list();
     }

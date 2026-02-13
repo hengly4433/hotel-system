@@ -43,6 +43,7 @@ export default function ContactPage() {
     <main>
       <section className="page-hero">
         <div className="container">
+          <span className="page-hero-badge">Get In Touch</span>
           <h1>Contact Us</h1>
           <p>Plan your stay, confirm details, or ask about special experiences.</p>
         </div>
@@ -50,14 +51,30 @@ export default function ContactPage() {
 
       <section className="section">
         <div className="container">
-          <div className="section-center" style={{ marginBottom: 32 }}>
-            <h2 className="section-title centered">Contact Us</h2>
+          <div className="contact-info-row">
+            <div className="contact-info-card">
+              <div className="contact-info-icon">📍</div>
+              <h4>Our Address</h4>
+              <p>Pier 21, Coastal Avenue<br />Harbor District</p>
+            </div>
+            <div className="contact-info-card">
+              <div className="contact-info-icon">📞</div>
+              <h4>Phone</h4>
+              <p>+1 (212) 555-0190<br />Mon–Sun, 24/7</p>
+            </div>
+            <div className="contact-info-card">
+              <div className="contact-info-icon">✉️</div>
+              <h4>Email</h4>
+              <p>stay@harborlight.com<br />We reply within 24h</p>
+            </div>
           </div>
+
           <div className="contact-grid">
             <div className="contact-card">
               {status === "success" ? (
-                <div className="card" style={{ textAlign: "center", padding: 40 }}>
-                  <h3 style={{ color: "var(--primary)" }}>Message Sent!</h3>
+                <div style={{ textAlign: "center", padding: "32px 16px" }}>
+                  <div className="contact-success-icon">✓</div>
+                  <h3>Message Sent!</h3>
                   <p>Thank you for contacting us. We will get back to you shortly.</p>
                   <button
                     className="btn btn-dark"
@@ -68,26 +85,27 @@ export default function ContactPage() {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="contact-form-modern">
+                  <h3 className="contact-form-title">Send us a message</h3>
                   {status === "error" && (
-                    <div style={{ color: "#b91c1c", marginBottom: 16 }}>{errorMessage}</div>
+                    <div className="auth-error-modern">{errorMessage}</div>
                   )}
-                  <label className="grid" style={{ gap: 8 }}>
-                    Name
+                  <label className="grid" style={{ gap: 6 }}>
+                    <span className="contact-label">Name</span>
                     <input
                       className="input"
-                      placeholder="Name"
+                      placeholder="Your full name"
                       data-name="name"
                       value={formData.name}
                       onChange={handleChange}
                       required
                     />
                   </label>
-                  <label className="grid" style={{ gap: 8 }}>
-                    Email
+                  <label className="grid" style={{ gap: 6 }}>
+                    <span className="contact-label">Email</span>
                     <input
                       className="input"
-                      placeholder="Email"
+                      placeholder="you@example.com"
                       type="email"
                       data-name="email"
                       value={formData.email}
@@ -95,22 +113,22 @@ export default function ContactPage() {
                       required
                     />
                   </label>
-                  <label className="grid" style={{ gap: 8 }}>
-                    Phone Number
+                  <label className="grid" style={{ gap: 6 }}>
+                    <span className="contact-label">Phone Number</span>
                     <input
                       className="input"
-                      placeholder="Phone Number"
+                      placeholder="+1 (555) 123-4567"
                       data-name="phone"
                       value={formData.phone}
                       onChange={handleChange}
                     />
                   </label>
-                  <label className="grid" style={{ gap: 8 }}>
-                    Message
+                  <label className="grid" style={{ gap: 6 }}>
+                    <span className="contact-label">Message</span>
                     <textarea
                       className="input"
                       rows={4}
-                      placeholder="Message"
+                      placeholder="Tell us about your plans..."
                       data-name="message"
                       value={formData.message}
                       onChange={handleChange}
@@ -118,12 +136,12 @@ export default function ContactPage() {
                     />
                   </label>
                   <button
-                    className="btn btn-dark"
+                    className="btn btn-primary"
                     type="submit"
                     disabled={status === "submitting"}
-                    style={{ marginTop: 16 }}
+                    style={{ marginTop: 8 }}
                   >
-                    {status === "submitting" ? "Sending..." : "Send"}
+                    {status === "submitting" ? "Sending..." : "Send Message"}
                   </button>
                 </form>
               )}

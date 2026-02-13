@@ -6,9 +6,11 @@ async function handler(
   context: { params: Promise<{ path?: string[] }> }
 ) {
   let base = process.env.BACKEND_BASE_URL || "http://localhost:8080";
-  if (base && !base.includes(".")) {
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    // Already a full URL, use as-is
+  } else if (!base.includes(".")) {
     base = `https://${base}.onrender.com`;
-  } else if (!base.startsWith("http")) {
+  } else {
     base = `https://${base}`;
   }
   console.log("DEBUG: Using BACKEND_BASE_URL:", base);

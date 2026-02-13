@@ -19,9 +19,9 @@ type RoomType = {
 };
 
 type GalleryPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     propertyId?: string;
-  };
+  }>;
 };
 
 function propertyLabel(property: PropertyOption) {
@@ -47,9 +47,10 @@ function collectGalleryImages(roomTypes: RoomType[]) {
 export const dynamic = "force-dynamic";
 
 export default async function GalleryPage({ searchParams }: GalleryPageProps) {
+  const params = await (searchParams ?? Promise.resolve({}));
   let properties: PropertyOption[] = [];
   let roomTypes: RoomType[] = [];
-  let selectedPropertyId = searchParams?.propertyId || "";
+  let selectedPropertyId = (params as { propertyId?: string }).propertyId || "";
 
   try {
     properties = await publicApi<PropertyOption[]>("/public/properties");
@@ -76,6 +77,7 @@ export default async function GalleryPage({ searchParams }: GalleryPageProps) {
     <main>
       <section className="page-hero">
         <div className="container">
+          <span className="page-hero-badge">Visual Journey</span>
           <h1>Gallery</h1>
           <p>A glimpse into our suites, lounges, and shoreline moments.</p>
         </div>
@@ -84,11 +86,12 @@ export default async function GalleryPage({ searchParams }: GalleryPageProps) {
       <section className="section">
         <div className="container">
           <div className="section-center">
-            <h2 className="section-title centered">Gallery</h2>
-            <p>Lorem Ipsum available, but the majority have suffered.</p>
+            <span className="section-eyebrow">Our Spaces</span>
+            <h2 className="section-title centered">Explore The Property</h2>
+            <p>Browse through our curated collection of room interiors, resort views, and coastal landscapes.</p>
           </div>
           {properties.length > 0 && (
-            <form method="GET" className="booking-form booking-form-light" style={{ marginBottom: 32 }}>
+            <form method="GET" className="booking-form booking-form-light property-filter-form">
               <label>
                 Property
                 <select name="propertyId" defaultValue={selectedPropertyId} required>
@@ -107,7 +110,10 @@ export default async function GalleryPage({ searchParams }: GalleryPageProps) {
           {galleryImages.length > 0 ? (
             <GalleryClient images={galleryImages} />
           ) : (
-            <div className="empty-state">No gallery images available for this property yet.</div>
+            <div className="empty-state">
+              <div className="empty-state-icon">📷</div>
+              <p style={{ margin: 0 }}>No gallery images available for this property yet.</p>
+            </div>
           )}
         </div>
       </section>

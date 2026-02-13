@@ -46,7 +46,7 @@ public class BlogService {
     }
 
     public List<BlogResponse> listPublic() {
-        return blogRepository.findAllByIsActiveTrueOrderByCreatedAtDesc().stream()
+        return blogRepository.findAllByActiveTrueOrderByCreatedAtDesc().stream()
                 .map(this::toResponse)
                 .toList();
     }

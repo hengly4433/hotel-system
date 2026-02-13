@@ -159,7 +159,7 @@ export default function RoomForm({
   };
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} sx={{ pb: 20 }}>
       <Box component="form" onSubmit={handleSubmit}>
         {/* Profile Image Section */}
         <Card
@@ -539,7 +539,23 @@ export default function RoomForm({
         </Card>
 
         {/* Action Buttons */}
-        <Box sx={{ textAlign: 'right' }}>
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 0,
+            right: 0,
+            width: { xs: '100%', md: 'calc(100% - 260px)' },
+            px: 3,
+            pt: 2,
+            pb: 2,
+            bgcolor: 'background.paper',
+            borderTop: `1px solid ${tokens.colors.grey[200]}`,
+            zIndex: 20,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 2,
+          }}
+        >
           <Button
             onClick={onCancel}
             variant="outlined"
@@ -547,7 +563,6 @@ export default function RoomForm({
             sx={{
               px: 3,
               py: 1,
-              mr: 2,
               borderRadius: 2,
               borderColor: tokens.colors.grey[300],
               color: tokens.colors.grey[700],

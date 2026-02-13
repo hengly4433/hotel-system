@@ -50,6 +50,18 @@ function primaryImage(room: RoomType) {
   return (primary || room.images[0]).url;
 }
 
+function formatDate(dateStr: string) {
+  try {
+    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -63,10 +75,18 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (!propertyId || !from || !to) {
     return (
       <main>
+        <section className="page-hero">
+          <div className="container">
+            <span className="page-hero-badge">Room Search</span>
+            <h1>Search Results</h1>
+            <p>Find the perfect room for your stay.</p>
+          </div>
+        </section>
         <section className="section">
           <div className="container">
-            <div className="card">
-              <h2>Missing search details</h2>
+            <div className="empty-state" style={{ maxWidth: 500, margin: "0 auto" }}>
+              <div className="empty-state-icon">🔍</div>
+              <h3 style={{ marginBottom: 8 }}>Missing search details</h3>
               <p>Please go back and enter your property, check-in, and check-out dates.</p>
               <Link className="btn btn-primary" href="/">
                 Back to search
@@ -90,10 +110,18 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   } catch (err) {
     return (
       <main>
+        <section className="page-hero">
+          <div className="container">
+            <span className="page-hero-badge">Room Search</span>
+            <h1>Search Results</h1>
+            <p>Find the perfect room for your stay.</p>
+          </div>
+        </section>
         <section className="section">
           <div className="container">
-            <div className="card">
-              <h2>Unable to load availability</h2>
+            <div className="empty-state" style={{ maxWidth: 500, margin: "0 auto" }}>
+              <div className="empty-state-icon">⚠️</div>
+              <h3 style={{ marginBottom: 8 }}>Unable to load availability</h3>
               <p>Please verify the property ID and try again.</p>
               <Link className="btn btn-primary" href="/">
                 Back to search
@@ -109,13 +137,31 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   return (
     <main>
+      <section className="page-hero">
+        <div className="container">
+          <span className="page-hero-badge">Room Search</span>
+          <h1>Available Rooms</h1>
+          <p>Select from available rooms for your perfect getaway.</p>
+        </div>
+      </section>
+
       <section className="section">
         <div className="container">
-          <div className="card" style={{ marginBottom: 24 }}>
-            <h2 style={{ marginTop: 0 }}>Available stays</h2>
-            <p style={{ color: "var(--ink-soft)" }}>
-              {from} → {to} · {adults} adults, {children} children
-            </p>
+          <div className="search-summary-banner">
+            <div className="search-summary-item">
+              <span className="search-summary-label">Check-in</span>
+              <span className="search-summary-value">{formatDate(from)}</span>
+            </div>
+            <div className="search-summary-divider">→</div>
+            <div className="search-summary-item">
+              <span className="search-summary-label">Check-out</span>
+              <span className="search-summary-value">{formatDate(to)}</span>
+            </div>
+            <div className="search-summary-divider">·</div>
+            <div className="search-summary-item">
+              <span className="search-summary-label">Guests</span>
+              <span className="search-summary-value">{adults} adults, {children} children</span>
+            </div>
           </div>
 
           {roomTypes.length > 0 ? (
@@ -125,46 +171,52 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 const minAvailable = availabilityItem ? minAvailability(availabilityItem.dates) : 0;
                 const isAvailable = minAvailable > 0;
                 const imageUrl = primaryImage(room);
-            return (
-              <div key={room.id} className="result-card">
+                return (
+                  <div key={room.id} className="result-card">
                     {imageUrl ? (
                       <img src={imageUrl} alt={room.name} className="result-image" />
                     ) : (
                       <div className="result-image placeholder">No image</div>
                     )}
-                <div className="result-body">
+                    <div className="result-body">
                       <div className="result-header">
                         <h3>{room.name}</h3>
                         <span className="result-code">{room.code}</span>
                       </div>
                       <p>{room.baseDescription || "A curated room with coastal light and quiet comfort."}</p>
+                      <div className="result-features">
+                        {room.defaultBedType && (
+                          <span className="result-feature-badge">🛏 {room.defaultBedType}</span>
+                        )}
+                        <span className="result-feature-badge">👥 Up to {room.maxOccupancy}</span>
+                      </div>
                       <div className="result-meta">
-                        <span>
-                          Sleeps up to {room.maxOccupancy} · {room.defaultBedType || "Signature bed"}
-                        </span>
                         <span className={isAvailable ? "status-pill available" : "status-pill sold"}>
                           {isAvailable ? `${minAvailable} rooms left` : "Unavailable"}
                         </span>
                       </div>
-                  {isAvailable ? (
-                    <Link
-                      className="btn btn-primary"
-                      href={`/book?propertyId=${propertyId}&roomTypeId=${room.id}&from=${from}&to=${to}&adults=${adults}&children=${children}`}
-                    >
-                      Book this room
-                    </Link>
-                  ) : (
-                    <button className="btn btn-disabled" type="button" disabled>
-                      Unavailable
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                      {isAvailable ? (
+                        <Link
+                          className="btn btn-primary"
+                          href={`/book?propertyId=${propertyId}&roomTypeId=${room.id}&from=${from}&to=${to}&adults=${adults}&children=${children}`}
+                        >
+                          Book this room
+                        </Link>
+                      ) : (
+                        <button className="btn btn-disabled" type="button" disabled>
+                          Unavailable
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className="empty-state">No room types are available for this property yet.</div>
+            <div className="empty-state">
+              <div className="empty-state-icon">🏨</div>
+              <p style={{ margin: 0 }}>No room types are available for this property yet.</p>
+            </div>
           )}
         </div>
       </section>

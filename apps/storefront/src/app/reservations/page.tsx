@@ -44,6 +44,18 @@ function statusTone(status: string) {
   return "";
 }
 
+function formatDate(dateStr: string) {
+  try {
+    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 export default function ReservationsPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<ReservationResponse[]>([]);
@@ -90,16 +102,22 @@ export default function ReservationsPage() {
 
   return (
     <main>
+      <section className="page-hero">
+        <div className="container">
+          <span className="page-hero-badge">Your Account</span>
+          <h1>My Reservations</h1>
+          <p>Review your upcoming stays and reservation details.</p>
+        </div>
+      </section>
+
       <section className="section">
         <div className="container">
-          <div className="card" style={{ marginBottom: 24 }}>
-            <h2 style={{ marginTop: 0 }}>My reservations</h2>
-            <p style={{ color: "var(--ink-soft)" }}>
-              Review your upcoming stays and reservation details.
-            </p>
-          </div>
-
-          {loading && <div className="empty-state">Loading your reservations...</div>}
+          {loading && (
+            <div className="empty-state">
+              <div className="empty-state-icon">⏳</div>
+              <p style={{ margin: 0 }}>Loading your reservations...</p>
+            </div>
+          )}
 
           {!loading && error && (
             <div className="card">
@@ -109,8 +127,10 @@ export default function ReservationsPage() {
           )}
 
           {!loading && !error && reservations.length === 0 && (
-            <div className="empty-state">
-              <p style={{ marginBottom: 16 }}>You don't have any reservations yet.</p>
+            <div className="empty-state" style={{ maxWidth: 500, margin: "0 auto" }}>
+              <div className="empty-state-icon">🏖</div>
+              <h3 style={{ marginBottom: 8 }}>No reservations yet</h3>
+              <p style={{ marginBottom: 16 }}>You don&apos;t have any reservations yet. Start planning your next stay!</p>
               <Link className="btn btn-primary" href="/">
                 Start a new booking
               </Link>
@@ -120,7 +140,7 @@ export default function ReservationsPage() {
           {!loading && !error && reservations.length > 0 && (
             <div className="results-grid">
               {reservations.map((reservation) => (
-                <div key={reservation.id} className="result-card">
+                <div key={reservation.id} className="result-card reservation-card">
                   <div className="result-body">
                     <div className="result-header">
                       <h3>Reservation #{reservation.code}</h3>
@@ -128,21 +148,28 @@ export default function ReservationsPage() {
                         {reservation.status.replace("_", " ")}
                       </span>
                     </div>
-                    <p style={{ marginTop: 4 }}>
-                      {reservation.checkInDate} → {reservation.checkOutDate}
-                    </p>
-                    <div className="result-meta">
-                      <span>
-                        {reservation.adults} adults · {reservation.children} children
-                      </span>
-                      <span>{reservation.rooms.length} room(s)</span>
+                    <div className="reservation-dates">
+                      <div className="reservation-date-block">
+                        <span className="reservation-date-label">Check-in</span>
+                        <span className="reservation-date-value">{formatDate(reservation.checkInDate)}</span>
+                      </div>
+                      <span className="reservation-date-arrow">→</span>
+                      <div className="reservation-date-block">
+                        <span className="reservation-date-label">Check-out</span>
+                        <span className="reservation-date-value">{formatDate(reservation.checkOutDate)}</span>
+                      </div>
                     </div>
-                    <div style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <span className="result-code">Channel: {reservation.channel}</span>
-                      {reservation.specialRequests && (
-                        <span className="result-code">Special requests noted</span>
-                      )}
+                    <div className="result-features">
+                      <span className="result-feature-badge">👥 {reservation.adults} adults · {reservation.children} children</span>
+                      <span className="result-feature-badge">🚪 {reservation.rooms.length} room(s)</span>
+                      <span className="result-feature-badge">📡 {reservation.channel}</span>
                     </div>
+                    {reservation.specialRequests && (
+                      <div className="reservation-note">
+                        <span style={{ fontWeight: 600, fontSize: "0.8rem", color: "var(--ink-soft)" }}>Special Requests</span>
+                        <p style={{ margin: "4px 0 0", fontSize: "0.9rem" }}>{reservation.specialRequests}</p>
+                      </div>
+                    )}
                     <div style={{ marginTop: 16 }}>
                       <Link className="btn btn-primary" href={`/manage?code=${reservation.code}`}>
                         Manage booking

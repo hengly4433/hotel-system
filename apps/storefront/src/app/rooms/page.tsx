@@ -1,4 +1,5 @@
 import { publicApi } from "@/lib/publicApi";
+import Link from "next/link";
 
 type PropertyOption = {
   id: string;
@@ -24,9 +25,9 @@ type RoomType = {
 };
 
 type RoomsPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     propertyId?: string;
-  };
+  }>;
 };
 
 function propertyLabel(property: PropertyOption) {
@@ -45,9 +46,10 @@ function primaryImage(roomType: RoomType) {
 export const dynamic = "force-dynamic";
 
 export default async function RoomsPage({ searchParams }: RoomsPageProps) {
+  const params = await (searchParams ?? Promise.resolve({}));
   let properties: PropertyOption[] = [];
   let roomTypes: RoomType[] = [];
-  let selectedPropertyId = searchParams?.propertyId || "";
+  let selectedPropertyId = (params as { propertyId?: string }).propertyId || "";
 
   try {
     properties = await publicApi<PropertyOption[]>("/public/properties");
@@ -72,7 +74,8 @@ export default async function RoomsPage({ searchParams }: RoomsPageProps) {
     <main>
       <section className="page-hero">
         <div className="container">
-          <h1>Our Room</h1>
+          <span className="page-hero-badge">Accommodations</span>
+          <h1>Our Rooms</h1>
           <p>Hand-finished spaces with layered textures and uninterrupted coastal views.</p>
         </div>
       </section>
@@ -80,11 +83,12 @@ export default async function RoomsPage({ searchParams }: RoomsPageProps) {
       <section className="section" style={{ background: "var(--surface-muted)" }}>
         <div className="container">
           <div className="section-center">
-            <h2 className="section-title centered">Stay with us</h2>
-            <p>Lorem Ipsum available, but the majority have suffered.</p>
+            <span className="section-eyebrow">Stay With Us</span>
+            <h2 className="section-title centered">Find Your Perfect Room</h2>
+            <p>Each room is thoughtfully designed with natural materials, soft lighting, and panoramic views of the coast.</p>
           </div>
           {properties.length > 0 && (
-            <form method="GET" className="booking-form booking-form-light" style={{ marginBottom: 32 }}>
+            <form method="GET" className="booking-form booking-form-light property-filter-form">
               <label>
                 Property
                 <select name="propertyId" defaultValue={selectedPropertyId} required>
@@ -105,24 +109,43 @@ export default async function RoomsPage({ searchParams }: RoomsPageProps) {
               roomTypes.map((room) => {
                 const imageUrl = primaryImage(room);
                 return (
-                  <div key={room.id} className="room-card">
-                    {imageUrl ? (
-                      <img src={imageUrl} alt={room.name} />
-                    ) : (
-                      <div className="room-image-placeholder">No image</div>
-                    )}
-                    <div className="room-card-body">
-                      <h3>{room.name}</h3>
-                      <p style={{ marginBottom: 0 }}>{room.baseDescription || "Designed for comfort."}</p>
+                  <Link key={room.id} href={`/rooms/${room.id}`} className="room-card-link">
+                    <div className="room-card">
+                      {imageUrl ? (
+                        <img src={imageUrl} alt={room.name} />
+                      ) : (
+                        <div className="room-image-placeholder">No image</div>
+                      )}
+                      <div className="room-card-body">
+                        {room.defaultBedType && (
+                          <span className="room-badge">{room.defaultBedType}</span>
+                        )}
+                        <h3>{room.name}</h3>
+                        <p style={{ marginBottom: 0 }}>{room.baseDescription || "Designed for comfort."}</p>
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })
             ) : (
-              <div className="empty-state">No rooms are published for this property yet.</div>
+              <div className="empty-state">
+                <div className="empty-state-icon">🏨</div>
+                <p style={{ margin: 0 }}>No rooms are published for this property yet.</p>
+              </div>
             )}
           </div>
         </div>
+        <style jsx>{`
+          .room-card-link {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            transition: transform 0.2s ease;
+          }
+          .room-card-link:hover {
+            transform: translateY(-5px);
+          }
+        `}</style>
       </section>
     </main>
   );

@@ -26,6 +26,18 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
   return (await res.json()) as T;
 }
 
+function formatDate(dateStr: string) {
+  try {
+    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 function ManageBookingContent() {
   const params = useSearchParams();
   const [code, setCode] = useState("");
@@ -76,60 +88,91 @@ function ManageBookingContent() {
   }
 
   return (
-    <main style={{ padding: "0 6vw 64px" }}>
+    <div style={{ maxWidth: 600, margin: "0 auto" }}>
       <div className="card" style={{ marginBottom: 24 }}>
-        <h2 style={{ marginTop: 0 }}>Manage your booking</h2>
-        <p style={{ color: "rgba(28, 42, 45, 0.7)" }}>
+        <div className="manage-header-icon">🔍</div>
+        <h2 style={{ marginTop: 8, marginBottom: 4 }}>Look up your booking</h2>
+        <p style={{ color: "var(--ink-soft)", marginBottom: 0 }}>
           Enter your confirmation code and email to view or cancel your stay.
         </p>
       </div>
 
       <form onSubmit={handleLookup} className="card grid" style={{ gap: 16, marginBottom: 24 }}>
-        {error ? <div style={{ color: "#b91c1c" }}>{error}</div> : null}
+        {error ? <div className="auth-error-modern">{error}</div> : null}
         <label className="grid" style={{ gap: 6 }}>
-          <span>Confirmation code</span>
-          <input className="input" value={code} onChange={(event) => setCode(event.target.value)} required />
+          <span className="contact-label">Confirmation code</span>
+          <input className="input" value={code} onChange={(event) => setCode(event.target.value)} placeholder="e.g. RES-20260212-001" required />
         </label>
         <label className="grid" style={{ gap: 6 }}>
-          <span>Email</span>
+          <span className="contact-label">Email</span>
           <input
             className="input"
             type="email"
+            placeholder="you@example.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
           />
         </label>
-        <button className="btn" type="submit" disabled={loading}>
-          {loading ? "Loading..." : "Find booking"}
+        <button className="btn btn-primary" type="submit" disabled={loading}>
+          {loading ? "Searching..." : "Find booking"}
         </button>
       </form>
 
       {reservation ? (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Reservation {reservation.code}</h3>
-          <p>Status: {reservation.status}</p>
-          <p>
-            {reservation.checkInDate} → {reservation.checkOutDate}
-          </p>
-          <p>Rooms: {reservation.rooms.length}</p>
+        <div className="card manage-result-card">
+          <div className="manage-result-header">
+            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Reservation {reservation.code}</h3>
+            <span className={`status-pill ${reservation.status === "CANCELLED" ? "sold" : "available"}`}>
+              {reservation.status.replace("_", " ")}
+            </span>
+          </div>
+          <div className="reservation-dates" style={{ marginTop: 16 }}>
+            <div className="reservation-date-block">
+              <span className="reservation-date-label">Check-in</span>
+              <span className="reservation-date-value">{formatDate(reservation.checkInDate)}</span>
+            </div>
+            <span className="reservation-date-arrow">→</span>
+            <div className="reservation-date-block">
+              <span className="reservation-date-label">Check-out</span>
+              <span className="reservation-date-value">{formatDate(reservation.checkOutDate)}</span>
+            </div>
+          </div>
+          <div className="result-features" style={{ marginTop: 16 }}>
+            <span className="result-feature-badge">🚪 {reservation.rooms.length} room(s)</span>
+          </div>
           {reservation.status === "CANCELLED" ? (
-            <p>Your booking has been cancelled.</p>
+            <div className="manage-cancelled-notice">
+              <p style={{ margin: 0 }}>This booking has been cancelled.</p>
+            </div>
           ) : (
-            <button className="btn secondary" type="button" onClick={handleCancel} disabled={loading}>
+            <button className="btn secondary" type="button" onClick={handleCancel} disabled={loading} style={{ marginTop: 20 }}>
               Cancel reservation
             </button>
           )}
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }
 
 export default function ManageBookingPage() {
   return (
-    <Suspense fallback={<div className="empty-state">Loading...</div>}>
-      <ManageBookingContent />
-    </Suspense>
+    <main>
+      <section className="page-hero">
+        <div className="container">
+          <span className="page-hero-badge">Booking Management</span>
+          <h1>Manage Booking</h1>
+          <p>View or cancel your reservation with your confirmation code.</p>
+        </div>
+      </section>
+      <section className="section">
+        <div className="container">
+          <Suspense fallback={<div className="empty-state">Loading...</div>}>
+            <ManageBookingContent />
+          </Suspense>
+        </div>
+      </section>
+    </main>
   );
 }

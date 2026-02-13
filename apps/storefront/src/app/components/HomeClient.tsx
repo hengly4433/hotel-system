@@ -98,6 +98,13 @@ async function fetchPublic<T>(path: string) {
   return (await res.json()) as T;
 }
 
+const HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=3200&auto=format&fit=crop", // Luxury pool
+  "https://images.unsplash.com/photo-1571896349842-6e53ce41e8f2?q=80&w=3200&auto=format&fit=crop", // Bedroom
+  "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=3200&auto=format&fit=crop", // Resort/Beach
+  "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=3200&auto=format&fit=crop", // Evening vibe
+];
+
 export default function HomeClient({
   properties,
   roomTypes: initialRoomTypes = [],
@@ -117,8 +124,19 @@ export default function HomeClient({
   const [roomLoading, setRoomLoading] = useState(false);
   const [roomError, setRoomError] = useState<string | null>(null);
 
+
+
   // Helper to get section content
   const getContent = (key: string) => pageContents.find((c) => c.sectionKey === key);
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % HERO_IMAGES.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -195,7 +213,15 @@ export default function HomeClient({
   return (
     <main>
       <section id="home" className="hero">
-        <div className="hero-bg" />
+        <div className="hero-bg-slider">
+          {HERO_IMAGES.map((img, index) => (
+            <div
+              key={img}
+              className={`hero-bg-slide ${index === currentImageIndex ? "active" : ""}`}
+              style={{ backgroundImage: `url(${img})` }}
+            />
+          ))}
+        </div>
         <div className="hero-overlay" />
         <div className="container hero-inner">
           <div className="hero-card" id="booking">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { publicApi } from "@/lib/publicApi";
 
 type Blog = {
@@ -10,6 +11,20 @@ type Blog = {
   isActive: boolean;
   createdAt: string;
 };
+
+function formatDate(dateString: string) {
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+export const dynamic = "force-dynamic";
 
 export default async function BlogPage() {
   let blogs: Blog[] = [];
@@ -24,6 +39,7 @@ export default async function BlogPage() {
     <main>
       <section className="page-hero">
         <div className="container">
+          <span className="page-hero-badge">Stories & Updates</span>
           <h1>Blog</h1>
           <p>Stories, rituals, and seasonal notes from Harborlight.</p>
         </div>
@@ -31,25 +47,30 @@ export default async function BlogPage() {
 
       <section className="section blog-section">
         <div className="container">
-          <div className="section-center" style={{ marginBottom: 32 }}>
-            <h2 className="section-title centered">Blog</h2>
-            <p>Latest stories and updates from our coastal retreat.</p>
-          </div>
           {blogs.length > 0 ? (
             <div className="blog-grid">
               {blogs.map((blog) => (
                 <article key={blog.id} className="blog-card">
-                  <img src={blog.imageUrl} alt={blog.title} />
+                  <div className="blog-card-img-wrap">
+                    <img src={blog.imageUrl} alt={blog.title} />
+                    <span className="blog-card-tag">{blog.tag}</span>
+                  </div>
                   <div className="blog-body">
+                    <span className="blog-date">{formatDate(blog.createdAt)}</span>
                     <h3>{blog.title}</h3>
-                    <span className="tag">{blog.tag}</span>
                     <p>{blog.description}</p>
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <div className="empty-state">No blog posts available yet.</div>
+            <div className="empty-state">
+              <div className="empty-state-icon">📝</div>
+              <p style={{ marginBottom: 12 }}>No blog posts available yet.</p>
+              <Link className="btn btn-primary" href="/">
+                Back to Home
+              </Link>
+            </div>
           )}
         </div>
       </section>

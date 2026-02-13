@@ -41,12 +41,12 @@ public class BlogControllerTest {
     public void getPublicBlogs_ShouldReturnOk() throws Exception {
         when(blogService.listPublic()).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/public/blogs"))
+        mockMvc.perform(get("/api/v1/public/blogs"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(username = "admin", roles = { "ADMIN" }, authorities = { "blog.read" })
+    @WithMockUser(username = "admin", authorities = { "blog.read", "ROLE_ADMIN" })
     public void getAdminBlogs_ShouldReturnOk() throws Exception {
         when(blogService.listAdmin()).thenReturn(List.of());
 

@@ -43,6 +43,18 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
   return (await res.json()) as T;
 }
 
+function formatDate(dateStr: string) {
+  try {
+    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 function BookingContent() {
   const params = useSearchParams();
   const router = useRouter();
@@ -167,8 +179,9 @@ function BookingContent() {
 
   if (!propertyId || !roomTypeId || !from || !to) {
     return (
-      <div className="card">
-        <h2>Missing details</h2>
+      <div className="empty-state" style={{ maxWidth: 500, margin: "0 auto" }}>
+        <div className="empty-state-icon">📋</div>
+        <h3 style={{ marginBottom: 8 }}>Missing details</h3>
         <p>Return to search to select dates and a room.</p>
       </div>
     );
@@ -179,16 +192,41 @@ function BookingContent() {
       ? [...roomType.images].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
       : [];
 
+  // Determine step
+  const currentStep = confirmation ? 3 : 1;
+
   return (
     <>
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h2 style={{ marginTop: 0 }}>Confirm your stay</h2>
-        <p style={{ color: "rgba(28, 42, 45, 0.7)" }}>
-          {roomType?.name || "Selected room"} · {from} → {to}
-        </p>
+      {/* Booking Steps */}
+      <div className="booking-steps">
+        <div className={`booking-step ${currentStep >= 1 ? "active" : ""}`}>
+          <span className="booking-step-num">1</span>
+          <span className="booking-step-label">Room & Rate</span>
+        </div>
+        <div className="booking-step-line" />
+        <div className={`booking-step ${currentStep >= 2 ? "active" : ""}`}>
+          <span className="booking-step-num">2</span>
+          <span className="booking-step-label">Guest Details</span>
+        </div>
+        <div className="booking-step-line" />
+        <div className={`booking-step ${currentStep >= 3 ? "active" : ""}`}>
+          <span className="booking-step-num">3</span>
+          <span className="booking-step-label">Confirmed</span>
+        </div>
+      </div>
+
+      {/* Room Summary Card */}
+      <div className="card booking-summary-card">
+        <div className="booking-summary-header">
+          <h2 style={{ marginTop: 0, marginBottom: 4 }}>
+            {confirmation ? "Booking Complete" : "Confirm your stay"}
+          </h2>
+          <p style={{ color: "var(--ink-soft)", margin: 0 }}>
+            {roomType?.name || "Selected room"} · {formatDate(from)} → {formatDate(to)}
+          </p>
+        </div>
         {roomImages.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Room gallery</div>
             <div
               style={{
                 display: "grid",
@@ -196,14 +234,14 @@ function BookingContent() {
                 gap: 8
               }}
             >
-              {roomImages.map((image, index) => (
+              {roomImages.slice(0, 4).map((image, index) => (
                 <div
                   key={`${image.url}-${index}`}
                   style={{
                     position: "relative",
                     borderRadius: 12,
                     overflow: "hidden",
-                    border: image.isPrimary ? "2px solid #0f172a" : "1px solid rgba(15, 23, 42, 0.12)"
+                    border: image.isPrimary ? "2px solid var(--accent)" : "1px solid var(--border-light)"
                   }}
                 >
                   <img
@@ -217,9 +255,9 @@ function BookingContent() {
                         position: "absolute",
                         top: 6,
                         left: 6,
-                        background: "#0f172a",
+                        background: "var(--accent)",
                         color: "#fff",
-                        padding: "2px 6px",
+                        padding: "2px 8px",
                         borderRadius: 8,
                         fontSize: 10,
                         fontWeight: 600
@@ -236,20 +274,30 @@ function BookingContent() {
       </div>
 
       {confirmation ? (
-        <div className="card">
+        <div className="card booking-confirmation-card">
+          <div className="booking-confirmation-icon">✓</div>
           <h3>Your reservation is confirmed</h3>
-          <p>
-            Confirmation code: <strong>{confirmation.code}</strong>
+          <div className="booking-confirmation-code">
+            <span>Confirmation Code</span>
+            <strong>{confirmation.code}</strong>
+          </div>
+          <div className="booking-confirmation-details">
+            <div className="booking-detail-item">
+              <span className="booking-detail-label">Status</span>
+              <span className="status-pill available">{confirmation.status}</span>
+            </div>
+            <div className="booking-detail-item">
+              <span className="booking-detail-label">Dates</span>
+              <span>{formatDate(confirmation.checkInDate)} → {formatDate(confirmation.checkOutDate)}</span>
+            </div>
+          </div>
+          <p style={{ color: "var(--ink-soft)", marginTop: 16 }}>
+            We have emailed your confirmation to {email}.
           </p>
-          <p>Status: {confirmation.status}</p>
-          <p>
-            {confirmation.checkInDate} → {confirmation.checkOutDate}
-          </p>
-          <p>We have emailed your confirmation to {email}.</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="grid" style={{ gap: 24 }}>
-          {error ? <div style={{ color: "#b91c1c" }}>{error}</div> : null}
+          {error ? <div className="auth-error-modern">{error}</div> : null}
           <div className="card">
             <h3 style={{ marginTop: 0 }}>Rate plan</h3>
             {ratePlans.length === 0 ? (
@@ -257,17 +305,30 @@ function BookingContent() {
                 No rate plans available for these dates. Please choose different dates.
               </p>
             ) : (
-              <select
-                className="input"
-                value={ratePlanId}
-                onChange={(event) => setRatePlanId(event.target.value)}
-              >
+              <div className="rate-plan-options">
                 {ratePlans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name} {plan.refundable ? "· Refundable" : "· Non-refundable"}
-                  </option>
+                  <label key={plan.id} className={`rate-plan-option ${ratePlanId === plan.id ? "selected" : ""}`}>
+                    <input
+                      type="radio"
+                      name="ratePlan"
+                      value={plan.id}
+                      checked={ratePlanId === plan.id}
+                      onChange={() => setRatePlanId(plan.id)}
+                    />
+                    <div className="rate-plan-info">
+                      <strong>{plan.name}</strong>
+                      <div className="rate-plan-badges">
+                        <span className={`rate-plan-badge ${plan.refundable ? "green" : "amber"}`}>
+                          {plan.refundable ? "Refundable" : "Non-refundable"}
+                        </span>
+                        {plan.includesBreakfast && (
+                          <span className="rate-plan-badge green">Breakfast included</span>
+                        )}
+                      </div>
+                    </div>
+                  </label>
                 ))}
-              </select>
+              </div>
             )}
           </div>
 
@@ -275,29 +336,30 @@ function BookingContent() {
             <h3 style={{ margin: 0 }}>Guest details</h3>
             <div className="two-col">
               <label className="grid" style={{ gap: 6 }}>
-                <span>First name</span>
+                <span className="contact-label">First name</span>
                 <input className="input" value={firstName} onChange={(event) => setFirstName(event.target.value)} required />
               </label>
               <label className="grid" style={{ gap: 6 }}>
-                <span>Last name</span>
+                <span className="contact-label">Last name</span>
                 <input className="input" value={lastName} onChange={(event) => setLastName(event.target.value)} required />
               </label>
             </div>
             <div className="two-col">
               <label className="grid" style={{ gap: 6 }}>
-                <span>Email</span>
+                <span className="contact-label">Email</span>
                 <input className="input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
               </label>
               <label className="grid" style={{ gap: 6 }}>
-                <span>Phone</span>
+                <span className="contact-label">Phone</span>
                 <input className="input" value={phone} onChange={(event) => setPhone(event.target.value)} />
               </label>
             </div>
             <label className="grid" style={{ gap: 6 }}>
-              <span>Special requests</span>
+              <span className="contact-label">Special requests</span>
               <textarea
                 className="input"
                 rows={3}
+                placeholder="Any special requests or preferences..."
                 value={specialRequests}
                 onChange={(event) => setSpecialRequests(event.target.value)}
               />
@@ -316,8 +378,15 @@ function BookingContent() {
 export default function BookingPage() {
   return (
     <main>
-      <section className="section">
+      <section className="page-hero">
         <div className="container">
+          <span className="page-hero-badge">Book Your Stay</span>
+          <h1>Reservation</h1>
+          <p>Complete your booking in just a few simple steps.</p>
+        </div>
+      </section>
+      <section className="section">
+        <div className="container" style={{ maxWidth: 720 }}>
           <Suspense fallback={<div className="empty-state">Loading booking...</div>}>
             <BookingContent />
           </Suspense>

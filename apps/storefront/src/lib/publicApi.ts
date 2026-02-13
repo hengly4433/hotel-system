@@ -1,8 +1,10 @@
 export async function publicApi<T>(path: string) {
   let base = process.env.BACKEND_BASE_URL || "http://localhost:8080";
-  if (base && !base.includes(".")) {
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    // Already a full URL, use as-is
+  } else if (!base.includes(".")) {
     base = `https://${base}.onrender.com`;
-  } else if (!base.startsWith("http")) {
+  } else {
     base = `https://${base}`;
   }
   const prefix = process.env.BACKEND_API_PREFIX || "/api/v1";
