@@ -1,0 +1,10 @@
+
+.roomCardLink {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: transform 0.2s ease;
+}
+.roomCardLink:hover {
+  transform: translateY(-5px);
+}

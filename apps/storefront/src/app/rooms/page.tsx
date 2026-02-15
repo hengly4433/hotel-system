@@ -1,5 +1,6 @@
 import { publicApi } from "@/lib/publicApi";
 import Link from "next/link";
+import styles from "./page.module.css";
 
 type PropertyOption = {
   id: string;
@@ -109,7 +110,7 @@ export default async function RoomsPage({ searchParams }: RoomsPageProps) {
               roomTypes.map((room) => {
                 const imageUrl = primaryImage(room);
                 return (
-                  <Link key={room.id} href={`/rooms/${room.id}`} className="room-card-link">
+                  <Link key={room.id} href={`/rooms/${room.id}`} className={styles.roomCardLink}>
                     <div className="room-card">
                       {imageUrl ? (
                         <img src={imageUrl} alt={room.name} />
@@ -135,17 +136,6 @@ export default async function RoomsPage({ searchParams }: RoomsPageProps) {
             )}
           </div>
         </div>
-        <style jsx>{`
-          .room-card-link {
-            text-decoration: none;
-            color: inherit;
-            display: block;
-            transition: transform 0.2s ease;
-          }
-          .room-card-link:hover {
-            transform: translateY(-5px);
-          }
-        `}</style>
       </section>
     </main>
   );

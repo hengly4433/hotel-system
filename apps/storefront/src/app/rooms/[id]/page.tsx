@@ -2,6 +2,7 @@ import { publicApi } from "@/lib/publicApi";
 import GalleryClient from "../../gallery/GalleryClient";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import styles from "./page.module.css";
 
 type RoomTypeImage = {
   url: string;
@@ -52,21 +53,21 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
     <main>
       <section className="page-hero">
         <div className="container">
-          <Link href="/rooms" className="back-link">
+          <Link href="/rooms" className={styles.backLink}>
             ← Back to Rooms
           </Link>
           <h1>{room.name}</h1>
-          <p className="hero-subtitle">{room.baseDescription}</p>
+          <p className={styles.heroSubtitle}>{room.baseDescription}</p>
         </div>
       </section>
 
       <section className="section">
         <div className="container">
-          <div className="room-detail-grid">
+          <div className={styles.roomDetailGrid}>
             <div className="room-info">
-              <div className="info-card">
+              <div className={styles.infoCard}>
                 <h3>Details</h3>
-                <ul className="detail-list">
+                <ul className={styles.detailList}>
                   <li>
                     <strong>Bed Type:</strong> {room.defaultBedType || "Standard"}
                   </li>
@@ -80,8 +81,8 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
                     <strong>Children:</strong> Up to {room.maxChildren}
                   </li>
                 </ul>
-                <div className="action-area">
-                  <a href={`/book?roomTypeId=${room.id}`} className="btn btn-primary btn-block">
+                <div className={styles.actionArea}>
+                  <a href={`/book?roomTypeId=${room.id}`} className={`btn btn-primary ${styles.btnBlock}`}>
                     Book This Room
                   </a>
                 </div>
@@ -99,77 +100,6 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
           </div>
         </div>
       </section>
-
-      <style jsx>{`
-        .back-link {
-          display: inline-block;
-          margin-bottom: 1rem;
-          color: rgba(255, 255, 255, 0.8);
-          text-decoration: none;
-          font-weight: 500;
-        }
-        .back-link:hover {
-          color: #fff;
-          text-decoration: underline;
-        }
-        .hero-subtitle {
-          font-size: 1.25rem;
-          opacity: 0.9;
-          max-width: 600px;
-        }
-        .room-detail-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 3rem;
-        }
-        @media (min-width: 900px) {
-          .room-detail-grid {
-            grid-template-columns: 350px 1fr;
-            align-items: start;
-          }
-        }
-        .info-card {
-          background: #fff;
-          padding: 2rem;
-          border-radius: 8px;
-          border: 1px solid #e5e5e5;
-          position: sticky;
-          top: 2rem;
-        }
-        .detail-list {
-          list-style: none;
-          padding: 0;
-          margin: 1.5rem 0;
-        }
-        .detail-list li {
-          padding: 0.75rem 0;
-          border-bottom: 1px solid #f0f0f0;
-          display: flex;
-          justify-content: space-between;
-        }
-        .detail-list li:last-child {
-          border-bottom: none;
-        }
-        .action-area {
-          margin-top: 1.5rem;
-        }
-        .btn-block {
-          background-color: #000;
-          color: white;
-          display: block;
-          width: 100%;
-          text-align: center;
-          padding: 1rem;
-          border-radius: 4px;
-          text-decoration: none;
-          font-weight: bold;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-        }
-        .btn-block:hover {
-          background-color: #333;
-        }
-      `}</style>
     </main>
   );
 }

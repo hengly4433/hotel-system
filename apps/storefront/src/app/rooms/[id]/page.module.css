@@ -1,0 +1,69 @@
+
+.backLink {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  font-weight: 500;
+}
+.backLink:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+.heroSubtitle {
+  font-size: 1.25rem;
+  opacity: 0.9;
+  max-width: 600px;
+}
+.roomDetailGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+}
+@media (min-width: 900px) {
+  .roomDetailGrid {
+    grid-template-columns: 350px 1fr;
+    align-items: start;
+  }
+}
+.infoCard {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  position: sticky;
+  top: 2rem;
+}
+.detailList {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+}
+.detailList li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+}
+.detailList li:last-child {
+  border-bottom: none;
+}
+.actionArea {
+  margin-top: 1.5rem;
+}
+.btnBlock {
+  background-color: #000;
+  color: white;
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.btnBlock:hover {
+  background-color: #333;
+}
